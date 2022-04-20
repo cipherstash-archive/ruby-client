@@ -14,7 +14,7 @@ Gem::Specification.new do |s|
 
   s.summary  = "A template gem"
 
-  s.authors  = ["Matt Palmer"]
+  s.authors  = ["Matt Palmer", "Dan Draper"]
   s.email    = ["matt@cipherstash.com"]
   s.homepage = "http://github.com/cipherstash/ruby-client"
 
