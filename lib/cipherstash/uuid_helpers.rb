@@ -3,16 +3,20 @@ module CipherStash
   #
   # @private
   module UUIDHelpers
-    def self.uuid_from_blob(blob)
-      blob.unpack("H*").first.scan(/^(.{8})(.{4})(.{4})(.{4})(.*)$/).join("-")
+    module ModuleMethods
+      def uuid_from_blob(blob)
+        blob.unpack("H*").first.scan(/^(.{8})(.{4})(.{4})(.{4})(.*)$/).join("-")
+      end
+
+      def blob_from_uuid(uuid)
+        [uuid.gsub("-", "")].pack("H*")
+      end
     end
 
-    def self.blob_from_uuid(uuid)
-      [uuid.gsub("-", "")].pack("H*")
-    end
+    extend ModuleMethods
 
     def self.included(mod)
-      mod.extend(self)
+      mod.include(ModuleMethods)
     end
   end
 end

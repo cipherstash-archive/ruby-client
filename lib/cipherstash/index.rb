@@ -1,10 +1,14 @@
 require "ore-rs"
 
+require_relative "./uuid_helpers"
+
 module CipherStash
   # Represents an index on a CipherStash collection.
   #
   # @private
   class Index
+    include UUIDHelpers
+
     # @return [String] index UUID in human-readable form
     attr_reader :id
 
@@ -24,6 +28,26 @@ module CipherStash
     #
     def supports?(op)
       (INDEX_OPS[@settings["mapping"]["kind"]] || {}).key?(op)
+    end
+
+    # Examine the given record and send back index vectors.
+    #
+    # @param id [String] human-readable UUID of the record that is being
+    #   analyzed.
+    #
+    # @param record [Object] the record data to analyze.
+    #
+    # @return [Documents::Vector]
+    #
+    def analyze(id, record)
+      id = blob_from_uuid(id)
+
+      case @settings["mapping"]["kind"]
+      when "exact", "range"
+        scalar_vector(id, record)
+      else
+        $stderr.puts "Not indexing #{@settings["mapping"]["kind"]} indexes yet"
+      end
     end
 
     # Figure out the constraints to apply to a query
@@ -84,6 +108,17 @@ module CipherStash
       @ore ||= begin
                  ORE::AES128.new([@settings["meta"]["$prfKey"]].pack("H*"), [@settings["meta"]["$prpKey"]].pack("H*"), 64, 8)
                end
+    end
+
+    def scalar_vector(id, record)
+      field_name = @settings["mapping"]["field"]
+      term = record[field_name] || record[field_name.to_sym]
+
+      if term.nil?
+        $stderr.puts "Did not find value for #{field_name.inspect} in #{record.inspect}"
+      else
+        { indexId: blob_from_uuid(@id), terms: [{ term: ore_encrypt(term).to_s, link: id }] }
+      end
     end
   end
 end
