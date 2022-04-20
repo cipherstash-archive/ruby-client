@@ -1,4 +1,5 @@
 require "bson"
+require "securerandom"
 
 require_relative "./collection/query"
 
@@ -40,7 +41,7 @@ module CipherStash
     #
     # @param record [Hash] the complete record to store in the database.
     #
-    # @return [void]
+    # @return [String] the UUID of the newly-created record.
     #
     # @raise [CipherStash::Client::Error::RecordPutFailure] if the record could not be inserted for some reason.
     #
@@ -49,7 +50,12 @@ module CipherStash
     # @raise [CipherStash::Client::Error::RPCFailure] if a low-level communication problem with the server caused the insert to fail.
     #
     def insert(record)
-      @rpc.put(self, record)
+      id = SecureRandom.uuid
+
+      vectors = @indexes.map { |idx| idx.analyze(id, record) }.compact
+      @rpc.put(self, id, record, vectors)
+
+      id
     end
 
     # Retrieve one or more records from the collection.
