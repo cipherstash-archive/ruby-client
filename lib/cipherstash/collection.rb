@@ -58,6 +58,34 @@ module CipherStash
       id
     end
 
+    # Update-or-insert a record in the collection.
+    #
+    # If a record with the given ID already exists in the collection, its contents (and indexes) will be updated.
+    # Otherwise, a new record will be inserted, with the ID specified.
+    #
+    # @param record [String] the human-readable UUID of the record.
+    #
+    # @param record [Hash] the complete record to store in the database.
+    #
+    # @return [void]
+    #
+    # @raise [CipherStash::Client::Error::RecordPutFailure] if the record could not be inserted for some reason.
+    #
+    # @raise [CipherStash::Client::Error::EncryptionFailure] if there was a problem encrypting the record.
+    #
+    # @raise [CipherStash::Client::Error::RPCFailure] if a low-level communication problem with the server caused the insert to fail.
+    #
+    def upsert(id, record)
+      unless id.is_a?(String)
+        raise ArgumentError, "Must provide a string ID"
+      end
+
+      vectors = @indexes.map { |idx| idx.analyze(id, record) }.compact
+      @rpc.put(self, id, record, vectors)
+
+      nil
+    end
+
     # Retrieve one or more records from the collection.
     #
     # @param id [String, Array<String>] the ID(s) of the record(s) to retrieve.
