@@ -1,6 +1,7 @@
 require "ore-rs"
 
 require_relative "./uuid_helpers"
+require_relative "./analysis/text_processor"
 
 module CipherStash
   # Represents an index on a CipherStash collection.
@@ -45,6 +46,8 @@ module CipherStash
       case @settings["mapping"]["kind"]
       when "exact", "range"
         scalar_vector(id, record)
+      when "match"
+        match_vector(id, record)
       else
         $stderr.puts "Not indexing #{@settings["mapping"]["kind"]} indexes yet"
       end
@@ -68,6 +71,10 @@ module CipherStash
     #
     def ore_encrypt(term)
       ore.encrypt(term)
+    end
+
+    def text_processor
+      @text_processor ||= Analysis::TextProcessor.new(@settings["mapping"])
     end
 
     INDEX_OPS = {
@@ -97,7 +104,13 @@ module CipherStash
           et = idx.ore_encrypt(t..)
           [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), range: { lower: et.first.to_s, upper: et.last.to_s } }]
         end,
-      }
+      },
+      "match" => {
+        "match" => -> (idx, s) do
+          id = UUIDHelpers.blob_from_uuid(idx.id)
+          idx.text_processor.perform(s).map { |t| { indexId: id, exact: { term: idx.ore_encrypt(t).to_s } } }
+        end,
+      },
     }
 
     private_constant :INDEX_OPS
@@ -119,6 +132,15 @@ module CipherStash
       else
         { indexId: blob_from_uuid(@id), terms: [{ term: ore_encrypt(term).to_s, link: id }] }
       end
+    end
+
+    def match_vector(id, record)
+      field_names = @settings["mapping"]["fields"]
+      raw_terms = field_names.map { |n| record[n] || record[n.to_sym] }
+
+      terms = raw_terms.map { |s| text_processor.perform(s) }.flatten
+
+      { indexId: blob_from_uuid(@id), terms: terms.map { |t| { term: ore_encrypt(t).to_s, link: id } } }
     end
   end
 end
