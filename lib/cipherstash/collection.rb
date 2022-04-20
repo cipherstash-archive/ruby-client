@@ -41,6 +41,8 @@ module CipherStash
     #
     # @param record [Hash] the complete record to store in the database.
     #
+    # @option store_record [Boolean] if set to false, the record data itself will not be stored in the data store.
+    #
     # @return [String] the UUID of the newly-created record.
     #
     # @raise [CipherStash::Client::Error::RecordPutFailure] if the record could not be inserted for some reason.
@@ -49,11 +51,11 @@ module CipherStash
     #
     # @raise [CipherStash::Client::Error::RPCFailure] if a low-level communication problem with the server caused the insert to fail.
     #
-    def insert(record)
+    def insert(record, store_record: true)
       id = SecureRandom.uuid
 
       vectors = @indexes.map { |idx| idx.analyze(id, record) }.compact
-      @rpc.put(self, id, record, vectors)
+      @rpc.put(self, id, store_record ? record : nil, vectors)
 
       id
     end
@@ -67,6 +69,8 @@ module CipherStash
     #
     # @param record [Hash] the complete record to store in the database.
     #
+    # @option store_record [Boolean] if set to false, the record data itself will not be stored in the data store.
+    #
     # @return [void]
     #
     # @raise [CipherStash::Client::Error::RecordPutFailure] if the record could not be inserted for some reason.
@@ -75,13 +79,13 @@ module CipherStash
     #
     # @raise [CipherStash::Client::Error::RPCFailure] if a low-level communication problem with the server caused the insert to fail.
     #
-    def upsert(id, record)
+    def upsert(id, record, store_record: true)
       unless id.is_a?(String)
         raise ArgumentError, "Must provide a string ID"
       end
 
       vectors = @indexes.map { |idx| idx.analyze(id, record) }.compact
-      @rpc.put(self, id, record, vectors)
+      @rpc.put(self, id, store_record ? record : nil, vectors)
 
       nil
     end

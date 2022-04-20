@@ -61,7 +61,7 @@ module CipherStash
       end
 
       def put(collection, id, record, vectors)
-        res = stub.put(Documents::PutRequest.new(collectionId: blob_from_uuid(collection.id), source: { id: blob_from_uuid(id), source: encrypt_blob(record.to_bson) }, vectors: vectors), metadata: rpc_headers)
+        res = stub.put(Documents::PutRequest.new(collectionId: blob_from_uuid(collection.id), source: { id: blob_from_uuid(id), source: record.nil? ? "" : encrypt_blob(record.to_bson) }, vectors: vectors), metadata: rpc_headers)
         id = SecureRandom.bytes(16)
         unless res.is_a?(Documents::PutReply)
           raise Error::RecordPutFailure, "expected Documents::PutReply response, got #{res.class} instead"
@@ -157,10 +157,10 @@ module CipherStash
         when Documents::Document
           Record.new(
             uuid_from_blob(r.id),
-            unbson(Cryptinator.new(@profile, @logger).decrypt(r.source))
+            r.source == "" ? nil : unbson(Cryptinator.new(@profile, @logger).decrypt(r.source))
           )
         when String
-          unbson(Cryptinator.new(@profile, @logger).decrypt(r))
+          r == "" ? nil : unbson(Cryptinator.new(@profile, @logger).decrypt(r))
         else
           raise Error::DecryptionFailure, "expected Documents::Document or String, got #{r.class} instead"
         end
