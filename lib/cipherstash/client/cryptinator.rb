@@ -14,7 +14,7 @@ module CipherStash
 
       def decrypt(c)
         Open3.popen2(creds_env, *command_line(:decrypt)) do |stdin, stdout, waiter|
-          stdin.write(c)
+          stdin.write(Base64.encode64(c))
           stdin.close
           status = waiter.value
 
@@ -63,6 +63,7 @@ module CipherStash
           "-o",
           "-",
           "--suppress-metadata",
+          "--decode",
           "--wrapping-keys",
           "provider=aws-kms",
           "key=#{@profile.kms_key_arn}",
