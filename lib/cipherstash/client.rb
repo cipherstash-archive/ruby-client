@@ -2,7 +2,6 @@ require "logger"
 
 require_relative "./client/rpc"
 require_relative "./client/profile"
-require_relative "./analysis/text_processor"
 
 # Top-level module for all things CipherStash.
 module CipherStash
