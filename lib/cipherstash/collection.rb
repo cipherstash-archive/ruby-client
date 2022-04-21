@@ -186,6 +186,17 @@ module CipherStash
     #     movies.year.gt(2015.0)
     #   end
     #
+    # ## Dynamic Constraints
+    #
+    # While the literate DSL described above is useful for "literal" queries, if you're generating queries programmatically it is somewhat cumbersome to use (a lot of calls to `#__send__`).
+    # So, you can instead use the `#add_constraint` method in the block to define your constraints.
+    # It uses the same inputs -- an index name, an operator, and arguments -- but in a single method call.
+    #
+    # @example Using `#add_constraint` to find movies less than an hour long and made after 2015
+    #   collection.query do |movies|
+    #     movies.add_constraint("runningTime", "lt", 60.0)
+    #     movies.add_constraint("year", "gt", 2015.0)
+    #   end
     #
     # # Aggregating Results
     #
