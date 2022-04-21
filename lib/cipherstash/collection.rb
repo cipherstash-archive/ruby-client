@@ -87,7 +87,7 @@ module CipherStash
       vectors = @indexes.map { |idx| idx.analyze(id, record) }.compact
       @rpc.put(self, id, store_record ? record : nil, vectors)
 
-      nil
+      true
     end
 
     # Retrieve one or more records from the collection.
