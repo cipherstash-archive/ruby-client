@@ -39,6 +39,11 @@ module CipherStash
           @index = nil
         end
 
+        def add_constraint(index_name, operator, *args)
+          index = @collection.index_named(index_name.to_s)
+          @__constraints += index.generate_constraints(operator, *args)
+        end
+
         # @private
         def method_missing(name, *args)
           if @index
