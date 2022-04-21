@@ -71,7 +71,7 @@ module CipherStash
     #
     # @option store_record [Boolean] if set to false, the record data itself will not be stored in the data store.
     #
-    # @return [void]
+    # @return [TrueClass]
     #
     # @raise [CipherStash::Client::Error::RecordPutFailure] if the record could not be inserted for some reason.
     #
