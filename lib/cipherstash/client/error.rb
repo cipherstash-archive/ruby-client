@@ -32,6 +32,17 @@ module CipherStash
 
       # An error occured while deleting a record.
       class RecordDeleteFailure < RPCFailure; end
+
+      # An error occured while executing a query.
+      class DocumentQueryFailure < RPCFailure; end
+
+      # A query constraint was specified incorrectly.
+      #
+      # Either a non-existent index was referenced, or an operator was specified that is not supported on the given index.
+      class QueryConstraintError < Error; end
+
+      # An attempt was made to retrieve data from a record stored in index-only mode.
+      class IndexOnlyRecordError < Error; end
     end
   end
 end

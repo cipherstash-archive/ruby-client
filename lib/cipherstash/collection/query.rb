@@ -42,6 +42,15 @@ module CipherStash
 
         def add_constraint(index_name, operator, *args)
           index = @collection.index_named(index_name.to_s)
+
+          if index.nil?
+            ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "undefined index `#{index_name}' for collection '#{@collection.name}'"
+          end
+
+          unless index.supports?(operator.to_s)
+            ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "unknown operator `#{operator}' for index '#{index_name}'"
+          end
+
           @__constraints += index.generate_constraints(operator, *args)
         end
 
@@ -52,13 +61,13 @@ module CipherStash
               @__constraints += @index.generate_constraints(name.to_s, *args)
               @index = nil
             else
-              ::Kernel.raise ::NoMethodError, "unknown operator `#{name}' for index '#{@index.name}'"
+              ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "unknown operator `#{name}' for index '#{@index.name}'"
             end
           else
             @index = @collection.index_named(name.to_s)
 
             if @index.nil?
-              ::Kernel.raise ::NoMethodError, "undefined index `#{name}' for collection '#{@collection.name}'"
+              ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "undefined index `#{name}' for collection '#{@collection.name}'"
             end
           end
 
