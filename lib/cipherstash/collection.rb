@@ -199,15 +199,24 @@ module CipherStash
     #
     # # Limiting the Number of Results
     #
-    # TBA
+    # Limits and offsets can be handled by passing `:limit` and `:offset` to the query method.
     #
+    # @example Limit to the first 5 results
+    #   collection.query(limit: 5) do |movies|
+    #     movies.exactTitle.eq("Star Trek: The Motion Picture")
+    #   end
     #
+    # @example Return 5 results offset by 20
+    #   collection.query(limit: 5, offset: 20) do |movies|
+    #     movies.exactTitle.eq("Star Trek: The Motion Picture")
+    #   end
+ 
     # @return [CipherStash::Client::Error::InvalidIndex] if the index name you specified for a constraint is not defined on the collection.
     #
     # @return [CipherStash::Client::Error::InvalidOperator] if the operator you specified for a constraint is not valid for the type of index being used.
     #
-    def query(&blk)
-      q = Query.new(self)
+    def query(opts = {}, &blk)
+      q = Query.new(self, opts)
       @rpc.query(self, q.parse(&blk))
     end
 
