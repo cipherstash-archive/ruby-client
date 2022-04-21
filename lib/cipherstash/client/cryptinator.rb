@@ -14,7 +14,7 @@ module CipherStash
 
       def decrypt(c)
         Open3.popen2(creds_env, *command_line(:decrypt)) do |stdin, stdout, waiter|
-          stdin.write(c)
+          stdin.write(Base64.encode64(c))
           stdin.close
           status = waiter.value
 
@@ -22,13 +22,13 @@ module CipherStash
             raise Error::DecryptionFailure, "aws-encryption-cli failed with status #{status.exitstatus}"
           end
 
-          stdout.read.force_encoding("BINARY")
+          Base64.decode64(stdout.read.force_encoding("BINARY"))
         end
       end
 
       def encrypt(p)
         Open3.popen2(creds_env, *command_line(:encrypt)) do |stdin, stdout, waiter|
-          stdin.write(p)
+          stdin.write(Base64.encode64(p))
           stdin.close
           status = waiter.value
 
@@ -36,7 +36,7 @@ module CipherStash
             raise Error::DecryptionFailure, "aws-encryption-cli failed with status #{status.exitstatus}"
           end
 
-          stdout.read.force_encoding("BINARY")
+          Base64.decode64(stdout.read.force_encoding("BINARY"))
         end
       end
 
@@ -63,6 +63,8 @@ module CipherStash
           "-o",
           "-",
           "--suppress-metadata",
+          "--decode",
+          "--encode",
           "--wrapping-keys",
           "provider=aws-kms",
           "key=#{@profile.kms_key_arn}",
