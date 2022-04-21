@@ -11,6 +11,7 @@ require "cipherstash/index"
 require "cipherstash/record"
 
 require_relative "./cryptinator"
+require_relative "../collection/query_result"
 
 # Just treat dates like times for CBOR 'cos YOLO
 class Date
@@ -119,7 +120,7 @@ module CipherStash
           raise Error::RecordDeleteFailure, "expected Queries::QueryReply response, got #{res.class} instead"
         end
 
-        Struct.new(:records, :aggregates).new(res.records.map { |r| decrypt_record(r) }, res.aggregates)
+        Collection::QueryResult.new(res.records.map { |r| decrypt_record(r) }, res.aggregates)
       end
 
       private
