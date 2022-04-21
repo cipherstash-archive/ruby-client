@@ -44,15 +44,16 @@ module CipherStash
           if @index
             if @index.supports?(name.to_s)
               @__constraints += @index.generate_constraints(name.to_s, *args)
+              @index = nil
             else
               ::Kernel.raise ::NoMethodError, "unknown operator `#{name}' for index '#{@index.name}'"
             end
           else
             @index = @collection.index_named(name.to_s)
-          end
 
-          if @index.nil?
-            ::Kernel.raise ::NoMethodError, "undefined index `#{name}' for collection '#{@collection.name}'"
+            if @index.nil?
+              ::Kernel.raise ::NoMethodError, "undefined index `#{name}' for collection '#{@collection.name}'"
+            end
           end
 
           self
