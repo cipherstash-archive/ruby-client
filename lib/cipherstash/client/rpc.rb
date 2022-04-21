@@ -1,5 +1,6 @@
 require "aws-sdk-kms"
 require "bson"
+require "cbor"
 require "grpc"
 require "openssl"
 require "securerandom"
@@ -10,6 +11,13 @@ require "cipherstash/index"
 require "cipherstash/record"
 
 require_relative "./cryptinator"
+
+# Just treat dates like times for CBOR 'cos YOLO
+class Date
+  def to_cbor(*args)
+    self.to_time.to_cbor(*args)
+  end
+end
 
 module CipherStash
   class Client
@@ -64,7 +72,7 @@ module CipherStash
         res = stub.put(
           Documents::PutRequest.new(
             collectionId: blob_from_uuid(collection.id),
-            source: { id: blob_from_uuid(id), source: record.nil? ? "" : encrypt_blob(record.to_json) },
+            source: { id: blob_from_uuid(id), source: record.nil? ? "" : encrypt_blob(record.to_cbor) },
             vectors: vectors
           ),
           metadata: rpc_headers
@@ -164,10 +172,10 @@ module CipherStash
         when Documents::Document
           Record.new(
             uuid_from_blob(r.id),
-            r.source == "" ? nil : JSON.parse(Cryptinator.new(@profile, @logger).decrypt(r.source))
+            r.source == "" ? nil : CBOR.unpack(Cryptinator.new(@profile, @logger).decrypt(r.source))
           )
         when String
-          r == "" ? nil : JSON.parse(Cryptinator.new(@profile, @logger).decrypt(r))
+          r == "" ? nil : CBOR.unpack(Cryptinator.new(@profile, @logger).decrypt(r))
         else
           raise Error::DecryptionFailure, "expected Documents::Document or String, got #{r.class} instead"
         end
