@@ -20,7 +20,13 @@ module CipherStash
     #
     # @return [Object, NilClass]
     #
+    # @raise [CipherStash::Client::Error::IndexOnlyRecordError] if this record was stored for indexing only.
+    #
     def [](k)
+      if @data.nil?
+        raise Client::Error::IndexOnlyRecordError, "This record does not have any associated data"
+      end
+
       @data[k]
     end
   end

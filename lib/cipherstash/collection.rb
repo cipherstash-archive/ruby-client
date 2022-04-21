@@ -214,17 +214,23 @@ module CipherStash
     #
     # @example Limit to the first 5 results
     #   collection.query(limit: 5) do |movies|
-    #     movies.exactTitle.eq("Star Trek: The Motion Picture")
+    #     movies.year.gt(1990.0)
     #   end
     #
     # @example Return 5 results offset by 20
     #   collection.query(limit: 5, offset: 20) do |movies|
-    #     movies.exactTitle.eq("Star Trek: The Motion Picture")
+    #     movies.year.gt(1990.0)
     #   end
- 
-    # @return [CipherStash::Client::Error::InvalidIndex] if the index name you specified for a constraint is not defined on the collection.
     #
-    # @return [CipherStash::Client::Error::InvalidOperator] if the operator you specified for a constraint is not valid for the type of index being used.
+    # @return [CipherStash::Collection::QueryResult]
+    #
+    # @raise [CipherStash::Client::Error::QueryConstraintError] if the index name you specified for a constraint is not defined on the collection, or the operator you specified is not supported by the associated index type.
+    #
+    # @raise [CipherStash::Client::Error::DocumentQueryFailure] if the query could not be executed.
+    #
+    # @raise [CipherStash::Client::Error::EncryptionFailure] if there was a problem encrypting the record.
+    #
+    # @raise [CipherStash::Client::Error::RPCFailure] if a low-level communication problem with the server caused the query to fail.
     #
     def query(opts = {}, &blk)
       q = Query.new(self, opts)
