@@ -125,7 +125,7 @@ module CipherStash
 
     def scalar_vector(id, record)
       field_name = @settings["mapping"]["field"]
-      term = record[field_name] || record[field_name.to_sym]
+      term = record[field_name]
 
       if term.nil?
         $stderr.puts "Did not find value for #{field_name.inspect} in #{record.inspect}"
