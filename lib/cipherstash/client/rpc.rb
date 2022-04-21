@@ -119,7 +119,7 @@ module CipherStash
           raise Error::RecordDeleteFailure, "expected Queries::QueryReply response, got #{res.class} instead"
         end
 
-        Struct.new(:records, :aggregates).new(res.result.map { |r| decrypt_record(r) }, res.aggregates)
+        Struct.new(:records, :aggregates).new(res.records.map { |r| decrypt_record(r) }, res.aggregates)
       end
 
       private
@@ -166,19 +166,14 @@ module CipherStash
       end
 
       def decrypt_record(r)
-        # When is a record not a document?  When it's a string!
-        # https://www.notion.so/cipherstash/QueryReply-result-should-be-repeated-Document-not-repeated-bytes-c42678fe225b4c7a9b4560cbcc83b1ea
-        case r
-        when Documents::Document
-          Record.new(
-            uuid_from_blob(r.id),
-            r.source == "" ? nil : CBOR.unpack(Cryptinator.new(@profile, @logger).decrypt(r.source))
-          )
-        when String
-          r == "" ? nil : CBOR.unpack(Cryptinator.new(@profile, @logger).decrypt(r))
-        else
-          raise Error::DecryptionFailure, "expected Documents::Document or String, got #{r.class} instead"
+        unless r.is_a?(Documents::Document)
+          raise Error::DecryptionFailure, "expected Documents::Document, got #{r.class} instead"
         end
+
+        Record.new(
+          uuid_from_blob(r.id),
+          r.source == "" ? nil : CBOR.unpack(Cryptinator.new(@profile, @logger).decrypt(r.source))
+        )
       end
 
       def uuid_from_blob(blob)
