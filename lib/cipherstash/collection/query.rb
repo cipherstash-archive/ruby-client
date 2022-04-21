@@ -11,22 +11,23 @@ module CipherStash
       include Stash::GRPC::V1
       include UUIDHelpers
 
-      def initialize(collection)
+      def initialize(collection, opts = {})
         @collection = collection
+        @opts = opts
       end
 
       # Run the block passed to a #query and sling back a Query protobuf ready to rock and/or roll.
       def parse(&blk)
         qc = QueryCollector.new(@collection)
-        yield qc
+        yield qc if block_given?
 
         Queries::Query.new(
-          limit: 50,
+          limit: @opts[:limit] || 50,
           constraints: qc.__constraints,
           aggregates: [],
           ordering: [],
           skipResults: false,
-          offset: 0
+          offset: @opts[:offset] || 0
         )
       end
 
@@ -37,6 +38,11 @@ module CipherStash
           @collection = collection
           @__constraints = []
           @index = nil
+        end
+
+        def add_constraint(index_name, operator, *args)
+          index = @collection.index_named(index_name.to_s)
+          @__constraints += index.generate_constraints(operator, *args)
         end
 
         # @private
