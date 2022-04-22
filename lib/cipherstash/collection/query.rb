@@ -21,6 +21,8 @@ module CipherStash
         qc = QueryCollector.new(@collection)
         yield qc if block_given?
 
+        p qc.__ordering
+
         Queries::Query.new(
           limit: @opts[:limit] || 50,
           constraints: qc.__constraints,
@@ -28,7 +30,7 @@ module CipherStash
           ordering: qc.__ordering,
           skipResults: false,
           offset: @opts[:offset] || 0
-        )
+        ).tap { |q| p q }
       end
 
       class QueryCollector < BasicObject
@@ -43,7 +45,11 @@ module CipherStash
 
         def order_by(index_name, direction = :ASC)
           index = fetch_index(index_name)
-          # TODO: Check that the index supports this
+
+          # Check that the index supports ordering
+          unless index.supports?("range")
+            ::Kernel.raise ::CipherStash::Client::Error::QueryOrderingError, "index '#{index_name}' does not support ordering (must be a `range` type)"
+          end
           @__ordering << { indexId: UUIDHelpers.blob_from_uuid(index.id), direction: direction }
         end
 
