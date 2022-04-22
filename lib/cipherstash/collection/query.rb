@@ -21,8 +21,6 @@ module CipherStash
         qc = QueryCollector.new(@collection)
         yield qc if block_given?
 
-        p qc.__ordering
-
         Queries::Query.new(
           limit: @opts[:limit] || 50,
           constraints: qc.__constraints,
@@ -30,7 +28,7 @@ module CipherStash
           ordering: qc.__ordering,
           skipResults: false,
           offset: @opts[:offset] || 0
-        ).tap { |q| p q }
+        )
       end
 
       class QueryCollector < BasicObject
