@@ -7,10 +7,19 @@ This is a Ruby (with Rust backend) client for the [CipherStash encrypted, search
 >
 > At present, the following things should work:
 >
-> * Nothing.
+> * Creating a client
+> * Using environment variables to configure the client
+> * Using a profile to configure the client, as long as the cached access token is valid
+> * Federating to AWS to access KMS using an access token
+> * Loading collections created with stash-cli
+> * Inserting, upserting, and deleting data
+> * Retrieving data by ID that was written by StashRB
+> * Querying data written by StashRB
 
 
 # Installation
+
+As `cipherstash-client` uses a Rust-based library (`ore-rs`) for its underlying cryptography, installation is a bit trickier than most gems.
 
 ## Pre-requisites
 
@@ -23,12 +32,15 @@ We'll have better docs on how to do that in the future; for now, if you don't kn
 
 ### AWS Encryption SDK
 
-In lieu of building Ruby bindings for the AWS Encryption SDK, we instead use the AWS Encryption CLI.
+At the moment, symmetric cryptography is handled by the AWS Encryption SDK, which doesn't have Ruby bindings.
+In lieu of building our own Ruby bindings for the AWS Encryption SDK, we instead use the AWS Encryption CLI.
 This is a Python program, which is most easily installed using `pip`:
 
 ```
 pip install aws-encryption-sdk-cli
 ```
+
+In the near future, this requirement will go away.
 
 
 ## Da gem!  Da gem!
