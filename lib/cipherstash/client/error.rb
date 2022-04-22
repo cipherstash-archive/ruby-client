@@ -41,6 +41,12 @@ module CipherStash
       # Either a non-existent index was referenced, or an operator was specified that is not supported on the given index.
       class QueryConstraintError < Error; end
 
+      # A query tried to order something that couldn't be ordered.
+      #
+      # Either a non-existent index was referenced, or the given index was not a range index.
+      class QueryOrderingError < Error; end
+
+
       # An attempt was made to retrieve data from a record stored in index-only mode.
       class IndexOnlyRecordError < Error; end
     end
