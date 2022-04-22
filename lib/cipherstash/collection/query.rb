@@ -25,27 +25,30 @@ module CipherStash
           limit: @opts[:limit] || 50,
           constraints: qc.__constraints,
           aggregates: [],
-          ordering: [],
+          ordering: qc.__ordering,
           skipResults: false,
           offset: @opts[:offset] || 0
         )
       end
 
       class QueryCollector < BasicObject
-        attr_reader :__constraints
+        attr_reader :__constraints, :__ordering
 
         def initialize(collection)
           @collection = collection
           @__constraints = []
+          @__ordering = []
           @index = nil
         end
 
-        def add_constraint(index_name, operator, *args)
-          index = @collection.index_named(index_name.to_s)
+        def order_by(index_name, direction = :ASC)
+          index = fetch_index(index_name)
+          # TODO: Check that the index supports this
+          @__ordering << { indexId: UUIDHelpers.blob_from_uuid(index.id), direction: direction }
+        end
 
-          if index.nil?
-            ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "undefined index `#{index_name}' for collection '#{@collection.name}'"
-          end
+        def add_constraint(index_name, operator, *args)
+          index = fetch_index(index_name.to_s)
 
           unless index.supports?(operator.to_s)
             ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "unknown operator `#{operator}' for index '#{index_name}'"
@@ -64,15 +67,22 @@ module CipherStash
               ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "unknown operator `#{name}' for index '#{@index.name}'"
             end
           else
-            @index = @collection.index_named(name.to_s)
-
-            if @index.nil?
-              ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "undefined index `#{name}' for collection '#{@collection.name}'"
-            end
+            @index = fetch_index(name.to_s)
           end
 
           self
         end
+
+        private
+          def fetch_index(name)
+            index = @collection.index_named(name.to_s)
+
+            if index.nil?
+              ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "undefined index `#{name}' for collection '#{@collection.name}'"
+            end
+
+            index
+          end
       end
 
       private_constant :QueryCollector
