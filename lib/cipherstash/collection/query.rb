@@ -45,7 +45,7 @@ module CipherStash
           index = fetch_index(index_name)
 
           # Check that the index supports ordering
-          unless index.supports?("range")
+          unless index.orderable?
             ::Kernel.raise ::CipherStash::Client::Error::QueryOrderingError, "index '#{index_name}' does not support ordering (must be a `range` type)"
           end
           @__ordering << { indexId: UUIDHelpers.blob_from_uuid(index.id), direction: direction }
