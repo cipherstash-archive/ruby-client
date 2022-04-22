@@ -31,6 +31,14 @@ module CipherStash
       (INDEX_OPS[@settings["mapping"]["kind"]] || {}).key?(op)
     end
 
+    # Does this index support ordering?
+    #
+    # @return [bool]
+    #
+    def orderable?
+      @settings["mapping"]["kind"] == "range"
+    end
+
     # Examine the given record and send back index vectors.
     #
     # @param id [String] human-readable UUID of the record that is being
