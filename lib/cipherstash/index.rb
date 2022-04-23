@@ -71,7 +71,7 @@ module CipherStash
     #
     # @param record [Object] the record data to analyze.
     #
-    # @return [Documents::Vector]
+    # @return [Documents::Vector, nil] the analyzed vector or nil if none can be generated
     #
     def analyze(id, record)
       raise RuntimeError, "Virtual method analyze called"

@@ -32,6 +32,7 @@ module CipherStash
       # @return [String]
       #
       def perform(str)
+        return [] if str.nil?
         tokens = @tokenizer.perform(str)
         @token_filters.inject(tokens) do |result, stage|
           stage.perform(result)
