@@ -1,4 +1,3 @@
-require "bson"
 require "securerandom"
 
 require_relative "./collection/query"

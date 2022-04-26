@@ -4,6 +4,7 @@ require "json"
 
 require_relative "./error"
 require_relative "./data_service_credentials_manager"
+require_relative "./creds_proxy"
 
 module CipherStash
   class Client
@@ -184,29 +185,41 @@ module CipherStash
         @data_service_credentials.fresh_credentials
       end
 
-      # A set of credentials suitable for accessing the KMS key for this profile.
+      # Generate an arbitrary object using a fresh set of KMS credentials.
       #
-      # Call this method every time you need creds, don't cache the return value yourself.
-      # Credentials are usually short-lived, and need periodic refreshing.  This method
-      # handles detecting when credentials need refreshing and handles that behind the
-      # scenes.
+      # This is... complicated to explain, though easy to use.  Let's work from
+      # examples.
       #
-      # The returned hash is suitable for passing to KMS::Client as
-      # `KMS::Client.new(**profile.kms_credentials)`.
-      def kms_credentials
+      # You want to do encryption and decryption with KMS.
+      # In order to do that, you need to have credentials which you can pass
+      # to your KMS client  Sensible people don't just hand out static IAM
+      # access keys, they use AssumeRole (and friends), which provide short-lived
+      # credentials.  So far, so good.
+      #
+      # Except... your KMS client might be used for a long time.  You don't want
+      # to create a new instance of KMS::Client for every operation, because that's
+      # going to (a) churn your GC, and (b) lose the advantages of pipelining, etc.
+      # On the other hand, if you create a long-lived `KMS::Client` with temporary
+      # credentials, eventually those credentials will expire and your KMS client
+      # will stop working.
+      #
+      # Enter: `#with_kms_credentials`.  This function takes a block which is called
+      # whenever new KMS credentials are needed, *and only then*.  The idea is that
+      # the block you pass takes the credentials and instantiates some object, and
+      # then `#with_kms_credentials` will cache that object until the credentials
+      # need to be rotated.
+      #
+      def with_kms_credentials(&blk)
         region = kms_key_arn.split(":")[3]
+        creds_provider = aws_credentials_provider(**symbolize_keys(@data["keyManagement"]["awsCredentials"]))
 
-        {
-          region: region,
-          credentials: case @data["keyManagement"]["awsCredentials"]["kind"]
-                       when "Federated"
-                         aws_federated_credentials
-                       when "Explicit"
-                         aws_explicit_credentials
-                       else
-                         raise "Unexpected AWS credentials kind #{@data["keyManagement"]["awsCredentials"]["kind"]}"
-                       end
-        }
+        CredsProxy.new do |cur|
+          if cur.nil? || creds_provider.expired?
+            blk.call({ region: region, credentials: creds_provider.credentials })
+          else
+            cur
+          end
+        end
       end
 
       # The KMS key ARN for this profile.
@@ -214,9 +227,8 @@ module CipherStash
         @data["keyManagement"]["key"]["arn"]
       end
 
-      # The (encrypted) naming key for this profile.
-      def naming_key
-        @data["keyManagement"]["key"]["namingKey"].unpack("m").first
+      def ref_for(name)
+        OpenSSL::HMAC.digest(OpenSSL::Digest::SHA256.new, naming_key, name)
       end
 
       # Rummage up the cached token for this profile.
@@ -231,32 +243,68 @@ module CipherStash
 
       private
 
-      def aws_federated_credentials
-        @federated_credentials ||= begin
-                                     Aws::AssumeRoleWebIdentityCredentials.new(
-                                       role_arn: @data["keyManagement"]["awsCredentials"]["roleArn"],
-                                       role_session_name: "StashRB",
-                                       web_identity_token_file: file_path("auth-token.jwt"),
-                                       client: Aws::STS::Client.new,
-                                       before_refresh: ->(_) {
-                                         File.write(file_path("auth-token.jwt"), data_service_credentials[:access_token], perm: 0600)
-                                       }
-                                     )
-                                   end
-
-        @federated_credentials.credentials
+      def symbolize_keys(h)
+        Hash[h.map do |k, v|
+          [k.to_sym, v.is_a?(Hash) ? symbolize_keys(v) : v]
+        end]
       end
 
-      def aws_explicit_credentials
-        Aws::Credentials.new(
-          @data["keyManagement"]["awsCredentials"]["accessKeyId"],
-          @data["keyManagement"]["awsCredentials"]["secretAccessKey"],
-          @data["keyManagement"]["awsCredentials"]["sessionToken"]
-        )
+      def aws_credentials_provider(kind:, **opts)
+        begin
+          case kind
+          when "Explicit"
+            p :OPTS, opts
+            aws_explicit_credentials(**opts)
+          when "Federated"
+            aws_federated_credentials(**opts)
+          else
+            raise Error::InvalidProfileError, "Unknown KMS credentials kind: #{kind}"
+          end
+        rescue ArgumentError => ex
+          raise Error::InvalidProfileError, "Invalid KMS credentials configuration: #{ex.message}"
+        end
+      end
+
+      def aws_federated_credentials(roleArn:, region:)
+        Aws::AssumeRoleWebIdentityCredentials.new(
+          role_arn: @data["keyManagement"]["awsCredentials"]["roleArn"],
+          role_session_name: "StashRB",
+          web_identity_token_file: file_path("auth-token.jwt"),
+          client: Aws::STS::Client.new,
+          before_refresh: ->(_) {
+            File.write(file_path("auth-token.jwt"), data_service_credentials[:access_token], perm: 0600)
+          }
+        ).tap do |creds|
+          class << creds
+            def expired?
+              near_expiration?(SYNC_EXPIRATION_LENGTH)
+            end
+          end
+        end
+      end
+
+      def aws_explicit_credentials(accessKeyId:, secretAccessKey:, sessionToken: nil, region:)
+        Aws::Credentials.new(accessKeyId, secretAccessKey, sessionToken).tap do |creds|
+          class << creds
+            def expired?
+              false
+            end
+          end
+        end
       end
 
       def file_path(f)
         File.expand_path(File.join("~/.cipherstash/#{@name}", f))
+      end
+
+      # The plaintext naming key for this profile.
+      def naming_key
+        @naming_key ||= begin
+                          encrypted_naming_key = @data["keyManagement"]["key"]["namingKey"].unpack("m").first
+                          with_kms_credentials do |creds|
+                            Aws::KMS::Client.new(**creds)
+                          end.decrypt(ciphertext_blob: encrypted_naming_key).plaintext
+                        end
       end
     end
   end

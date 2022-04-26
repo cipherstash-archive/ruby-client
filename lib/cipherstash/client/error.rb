@@ -46,9 +46,11 @@ module CipherStash
       # Either a non-existent index was referenced, or the given index was not a range index.
       class QueryOrderingError < Error; end
 
-
       # An attempt was made to retrieve data from a record stored in index-only mode.
       class IndexOnlyRecordError < Error; end
+
+      # Some aspect of the profile was not configured correctly.
+      class InvalidProfileError < Error; end
     end
   end
 end
