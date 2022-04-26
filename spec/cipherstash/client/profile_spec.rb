@@ -17,6 +17,30 @@ describe CipherStash::Client::Profile do
   let(:data) { profile.instance_variable_get(:@data) }
 
   describe ".load" do
+    context "when no profile was specified and the default profile doesn't exist" do
+      let(:profile_name) { nil }
+
+      before(:each) do
+        FileUtils.rm_rf(File.expand_path("~/.cipherstash/default"))
+      end
+
+      it "loads OK" do
+        expect { described_class.load(profile_name, logger) }.to_not raise_error
+      end
+    end
+
+    context "when the default profile was specified but it does not exist" do
+      let(:profile_name) { "default" }
+
+      before(:each) do
+        FileUtils.rm_rf(File.expand_path("~/.cipherstash/default"))
+      end
+
+      it "raises an error" do
+        expect { described_class.load(profile_name, logger) }.to raise_error(CipherStash::Client::Error::LoadProfileFailure)
+      end
+    end
+
     context "on a profile that does not exist" do
       let(:profile_name) { "non-existent" }
 

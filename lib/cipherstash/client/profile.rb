@@ -12,14 +12,19 @@ module CipherStash
     # @private
     class Profile
       def self.load(maybe_name, logger)
-        profile_name = resolve_profile_name(maybe_name)
+        maybe_profile_name = resolve_profile_name(maybe_name)
+        profile_name = maybe_profile_name || "default"
 
         profile_data = begin
           logger.debug("CipherStash::Profile.load") { "Reading data for profile '#{profile_name}' from ~/.cipherstash/#{profile_name}/profile-config.json" }
           profile_data = JSON.parse(File.read(file_path(profile_name, "profile-config.json")))
 
         rescue Errno::ENOENT
-          {}
+          if maybe_profile_name.nil?
+            {}
+          else
+            raise Error::LoadProfileFailure, "Profile '#{profile_name}' does not exist"
+          end
         rescue JSON::ParserError => ex
           raise Error::LoadProfileFailure, "Profile '#{profile_name}' has an invalid profile-config.json: #{ex.message}"
         end.deep_merge(default_profile)
@@ -33,6 +38,9 @@ module CipherStash
         private
 
         # Figure out what profile name we're supposed to be loading.
+        # If the user has not specified a preference, we return `nil`, because
+        # we need to be able to differentiate between "user asked for the profile
+        # named 'default'" and "user did not ask for a profile name".
         def resolve_profile_name(name)
           # Passed in as the constructor has the highest precedence, so
           # maybe we can get this over and done with quickly?
@@ -60,8 +68,7 @@ module CipherStash
             raise Error::LoadProfileFailure, "Error while reading ~/.cipherstash/config.json: #{ex.message} (#{ex.class})"
           end
 
-          # Fine, we'll go with the default, then... literally.
-          "default"
+          nil
         end
 
         def default_profile
