@@ -1,6 +1,6 @@
 require "aws-sdk-kms"
-require "bson"
 require "cbor"
+require "enveloperb"
 require "grpc"
 require "openssl"
 require "securerandom"
@@ -10,7 +10,6 @@ require "cipherstash/grpc"
 require "cipherstash/index"
 require "cipherstash/record"
 
-require_relative "./cryptinator"
 require_relative "../collection/query_result"
 
 # Just treat dates like times for CBOR 'cos YOLO
@@ -40,10 +39,20 @@ module CipherStash
         @profile, @logger = profile, logger
 
         @logger.debug("CipherStash::Client::RPC") { "Connecting to data-service at '#{@profile.service_host}:#{@profile.service_port}'" }
+
+        @cipher_engine = @profile.with_kms_credentials do |creds|
+          Enveloperb::AWSKMS.new(
+            @profile.kms_key_arn,
+            aws_access_key_id: creds[:credentials].access_key_id,
+            aws_secret_access_key: creds[:credentials].secret_access_key,
+            aws_session_token: creds[:credentials].session_token,
+            aws_region: creds[:region]
+          )
+        end
       end
 
       def collection_info(name)
-        res = stub.collection_info(Collections::InfoRequest.new(ref: ref(name)), metadata: rpc_headers)
+        res = stub.collection_info(Collections::InfoRequest.new(ref: @profile.ref_for(name)), metadata: rpc_headers)
         unless res.is_a?(Collections::InfoReply)
           raise Error::CollectionInfoFailure, "expected Collections::InfoReply response, got #{res.class} instead"
         end
@@ -58,6 +67,26 @@ module CipherStash
         end
 
         res.collections.map { |c| decrypt_collection_info(c) }
+      end
+
+      def create_collection(name, metadata, indexes)
+        res = stub.create_collection(
+          Collections::CreateRequest.new(
+            ref: @profile.ref_for(name),
+            metadata: encrypt_blob(metadata.to_cbor),
+            indexes: indexes.map do |idx|
+              {
+                id: blob_from_uuid(SecureRandom.uuid),
+                settings: encrypt_blob(idx.to_cbor)
+              }
+            end
+          ),
+          metadata: rpc_headers
+        )
+
+        unless res.is_a?(Collections::InfoReply)
+          raise Error::CollectionCreationFailure, "expected Collections::InfoReply response, got #{res.class} instead"
+        end
       end
 
       def delete_collection(collection)
@@ -150,7 +179,7 @@ module CipherStash
           self,
           uuid_from_blob(info.id),
           info.ref,
-          metadata = unbson(Cryptinator.new(@profile, @logger).decrypt(info.metadata)),
+          metadata = CBOR.decode(@cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(info.metadata))),
           info.indexes.map { |i| decrypt_index(i) }
         )
       end
@@ -162,7 +191,7 @@ module CipherStash
 
         Index.new(
           uuid_from_blob(idx.id),
-          unbson(Cryptinator.new(@profile, @logger).decrypt(idx.settings))
+          CBOR.decode(@cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(idx.settings)))
         )
       end
 
@@ -173,7 +202,7 @@ module CipherStash
 
         Record.new(
           uuid_from_blob(r.id),
-          r.source == "" ? nil : CBOR.unpack(Cryptinator.new(@profile, @logger).decrypt(r.source))
+          r.source == "" ? nil : CBOR.unpack(@cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(r.source)))
         )
       end
 
@@ -186,21 +215,7 @@ module CipherStash
       end
 
       def encrypt_blob(blob)
-        Cryptinator.new(@profile, @logger).encrypt(blob)
-      end
-
-      def unbson(s)
-        Hash.from_bson(BSON::ByteBuffer.new(s))
-      end
-
-      def ref(name)
-        OpenSSL::HMAC.digest(OpenSSL::Digest::SHA256.new, naming_key, name)
-      end
-
-      def naming_key
-        @naming_key ||= begin
-                          Aws::KMS::Client.new(@profile.kms_credentials).decrypt(ciphertext_blob: @profile.naming_key).plaintext
-                        end
+        @cipher_engine.encrypt(blob).to_s
       end
     end
 

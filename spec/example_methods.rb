@@ -59,7 +59,7 @@ module ExampleMethods
         "awsCredentials" => {
           "kind"            => "Explicit",
           "accessKeyId"     => "ASDF4145",
-          "secretAccesskey" => "s00p3rs3kr1t",
+          "secretAccessKey" => "s00p3rs3kr1t",
           "region"          => "xx-nowhere-1",
         },
       }

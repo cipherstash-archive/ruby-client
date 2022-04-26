@@ -30,19 +30,6 @@ If you are on an arm64 machine (M1 Mac, for example) you will need to be running
 We'll have better docs on how to do that in the future; for now, if you don't know how to do that, this gem *probably* isn't for you just yet.
 
 
-### AWS Encryption SDK
-
-At the moment, symmetric cryptography is handled by the AWS Encryption SDK, which doesn't have Ruby bindings.
-In lieu of building our own Ruby bindings for the AWS Encryption SDK, we instead use the AWS Encryption CLI.
-This is a Python program, which is most easily installed using `pip`:
-
-```
-pip install aws-encryption-sdk-cli
-```
-
-In the near future, this requirement will go away.
-
-
 ## Da gem!  Da gem!
 
 So, if that's all good, you can install it as a gem:

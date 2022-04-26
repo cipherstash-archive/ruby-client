@@ -79,5 +79,54 @@ module CipherStash
     def collections
       @rpc.collection_list
     end
+
+    # Create a new collection the data store.
+    #
+    # @param name [String] the name of the collection to create.
+    #
+    # @param schema [Hash<String, Object>] a description of the structure of the data and indexes in the collection.
+    #   Is a Ruby nested hash with a structure identical to that described in [the fine manual](https://docs.cipherstash.com/reference/schema-definition.html).
+    #
+    # @return [TrueClass]
+    #
+    # @raise [CipherStash::Client::Error::CollectionCreationFailure] if the collection could not be loaded for some reason, such as if the collection did not exist.
+    #
+    # @raise [CipherStash::Client::Error::EncryptionFailure] if there was a problem while encrypting the collection or index metadata.
+    #
+    # @raise [CipherStash::Client::Error::DecryptionFailure] if there was a problem decrypting the naming key.
+    #
+    def create_collection(name, schema)
+      metadata = {
+        name: name,
+        recordType: schema["type"],
+      }
+
+      indexes = schema["indexes"].map do |idx_name, idx_settings|
+        {
+          meta: {
+            "$indexId" => SecureRandom.uuid,
+            "$indexName" => idx_name,
+            "$prfKey" => SecureRandom.hex(16),
+            "$prpKey" => SecureRandom.hex(16),
+          },
+          mapping: idx_settings.merge(
+            {
+              fieldType: case idx_settings["kind"]
+              when "exact", "range"
+                schema["type"][idx_settings["field"]]
+              when "match", "dynamic-match", "field-dynamic-match"
+                "string"
+              else
+                raise Error::InvalidSchemaError, "Unknown index kind #{idx_settings["kind"]}"
+              end
+            }
+          ),
+        }
+      end
+
+      @rpc.create_collection(name, metadata, indexes)
+
+      true
+    end
   end
 end
