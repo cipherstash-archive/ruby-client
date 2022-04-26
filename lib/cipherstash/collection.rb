@@ -205,7 +205,11 @@ module CipherStash
     #
     # # Sorting
     #
-    # TBA
+    # To specify a sorting strategy, use the `order_by` method on the object passed to the query block.
+    # It takes one required argument, the name of an index, and an optional second argument, which can be either `:ASC` or `:DESC`, which specifies the direction of sorting.
+    # The index you specify must be of a type that supports ordering (only the "range" index type does at present).
+    #
+    # You can call `order_by` more than once; ordering strategies are applied in the order they are specified.
     #
     #
     # # Limiting the Number of Results
@@ -225,6 +229,8 @@ module CipherStash
     # @return [CipherStash::Collection::QueryResult]
     #
     # @raise [CipherStash::Client::Error::QueryConstraintError] if the index name you specified for a constraint is not defined on the collection, or the operator you specified is not supported by the associated index type.
+    #
+    # @raise [CipherStash::Client::Error::QueryOrderingError] if some aspect of an `order_by` call was invalid.
     #
     # @raise [CipherStash::Client::Error::DocumentQueryFailure] if the query could not be executed.
     #

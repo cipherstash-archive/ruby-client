@@ -48,6 +48,11 @@ module CipherStash
           unless index.orderable?
             ::Kernel.raise ::CipherStash::Client::Error::QueryOrderingError, "index '#{index_name}' does not support ordering (must be a `range` type)"
           end
+
+          unless [:ASC, :DESC].include?(direction)
+            ::Kernel.raise ::CipherStash::Client::Error::QueryOrderingError, "ordering direction must be either :ASC or :DESC (got #{direction.inspect})"
+          end
+
           @__ordering << { indexId: UUIDHelpers.blob_from_uuid(index.id), direction: direction }
         end
 
