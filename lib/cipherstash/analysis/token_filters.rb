@@ -18,8 +18,8 @@ module CipherStash
           token_length = @opts["tokenLength"] || 3
           Array(str_or_array).flat_map do |token|
             [].tap do |out|
-              token.chars().each_slice(token_length) do |slice|
-                out << slice.join
+              (token.length - token_length + 1).times do |i|
+                out << token[i, token_length]
               end
             end
           end

@@ -58,6 +58,8 @@ module CipherStash
         match_vector(id, record)
       when "dynamic-match"
         dynamic_match_vector(id, record)
+      when "field-dynamic-match"
+        field_dynamic_match_vector(id, record)
       else
         $stderr.puts "Not indexing #{@settings["mapping"]["kind"]} indexes yet"
       end
@@ -71,8 +73,8 @@ module CipherStash
     #
     # @return [Array<Hash>]
     #
-    def generate_constraints(op, term)
-      INDEX_OPS[@settings["mapping"]["kind"]][op].call(self, term)
+    def generate_constraints(op, *args)
+      INDEX_OPS[@settings["mapping"]["kind"]][op].call(self, *args)
     end
 
     # Encrypt the given term using ORE
@@ -131,6 +133,12 @@ module CipherStash
           idx.text_processor.perform(s).map { |t| { indexId: id, exact: { term: idx.ore_encrypt(t).to_s } } }
         end,
       },
+      "field-dynamic-match" => {
+        "match" => -> (idx, f, s) do
+          id = UUIDHelpers.blob_from_uuid(idx.id)
+          idx.text_processor.perform(s).map { |t| { indexId: id, exact: { term: idx.ore_encrypt("#{f}:#{t}").to_s } } }
+        end,
+      },
     }
 
     private_constant :INDEX_OPS
@@ -171,14 +179,22 @@ module CipherStash
       { indexId: blob_from_uuid(@id), terms: terms.map { |t| { term: ore_encrypt(t).to_s, link: id } } }
     end
 
+    def field_dynamic_match_vector(id, record)
+      raw_terms = collect_string_fields(record)
+
+      terms = raw_terms.map { |f, s| text_processor.perform(s).map { |b| "#{f}:#{b}" } }.flatten
+
+      { indexId: blob_from_uuid(@id), terms: terms.map { |t| { term: ore_encrypt(t).to_s, link: id } } }
+    end
+
     def collect_string_fields(record, prefix = "")
-      record.each_with_index do |(k, v), a|
+      record.each_with_object([]) do |(k, v), a|
         if v.is_a?(String)
           a << ["#{prefix}#{k}", v]
         elsif v.is_a?(Hash)
-          a << collect_string_fields(v, "#{prefix}#{k}.")
+          a.append(*collect_string_fields(v, "#{prefix}#{k}."))
         end
-      end.flatten(1)
+      end
     end
   end
 end
