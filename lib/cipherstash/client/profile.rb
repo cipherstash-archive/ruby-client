@@ -253,7 +253,6 @@ module CipherStash
         begin
           case kind
           when "Explicit"
-            p :OPTS, opts
             aws_explicit_credentials(**opts)
           when "Federated"
             aws_federated_credentials(**opts)
