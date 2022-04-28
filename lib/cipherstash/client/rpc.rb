@@ -189,7 +189,7 @@ module CipherStash
           raise Error::DecryptionFailure, "expected Indexes::Index, got #{idx.class} instead"
         end
 
-        Index.new(
+        Index.generate(
           uuid_from_blob(idx.id),
           CBOR.decode(@cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(idx.settings)))
         )
