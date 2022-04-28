@@ -3,12 +3,35 @@ require "ore-rs"
 require_relative "./uuid_helpers"
 require_relative "./analysis/text_processor"
 
+require_relative "./index/exact"
+require_relative "./index/range"
+require_relative "./index/match"
+require_relative "./index/dynamic_match"
+require_relative "./index/field_dynamic_match"
+
 module CipherStash
   # Represents an index on a CipherStash collection.
   #
   # @private
   class Index
     include UUIDHelpers
+
+    def self.generate(id, settings)
+      case settings["mapping"]["kind"]
+      when "exact"
+        Exact.new(id, settings)
+      when "range"
+        Range.new(id, settings)
+      when "match"
+        Match.new(id, settings)
+      when "dynamic-match"
+        DynamicMatch.new(id, settings)
+      when "field-dynamic-match"
+        FieldDynamicMatch.new(id, settings)
+      else
+        raise Error::InvalidSchemaError, "Unknown index kind #{settings["mapping"]["kind"].inspect}"
+      end
+    end
 
     # @return [String] index UUID in human-readable form
     attr_reader :id
@@ -28,7 +51,7 @@ module CipherStash
     # @return [bool]
     #
     def supports?(op)
-      (INDEX_OPS[@settings["mapping"]["kind"]] || {}).key?(op)
+      self.class::INDEX_OPS.key?(op)
     end
 
     # Does this index support ordering?
@@ -36,7 +59,9 @@ module CipherStash
     # @return [bool]
     #
     def orderable?
-      @settings["mapping"]["kind"] == "range"
+      # Most indexes don't support ordering; it's an opt-in thing for those
+      # that do
+      false
     end
 
     # Examine the given record and send back index vectors.
@@ -49,20 +74,7 @@ module CipherStash
     # @return [Documents::Vector]
     #
     def analyze(id, record)
-      id = blob_from_uuid(id)
-
-      case @settings["mapping"]["kind"]
-      when "exact", "range"
-        scalar_vector(id, record)
-      when "match"
-        match_vector(id, record)
-      when "dynamic-match"
-        dynamic_match_vector(id, record)
-      when "field-dynamic-match"
-        field_dynamic_match_vector(id, record)
-      else
-        $stderr.puts "Not indexing #{@settings["mapping"]["kind"]} indexes yet"
-      end
+      raise RuntimeError, "Virtual method analyze called"
     end
 
     # Figure out the constraints to apply to a query
@@ -74,7 +86,12 @@ module CipherStash
     # @return [Array<Hash>]
     #
     def generate_constraints(op, *args)
-      INDEX_OPS[@settings["mapping"]["kind"]][op].call(self, *args)
+      op_fn = self.class::INDEX_OPS[op]
+      if op_fn.nil?
+        raise Error::InvalidQuery, "Unknown operator #{op.inspect}"
+      end
+
+      op_fn.call(self, *args)
     end
 
     # Encrypt the given term using ORE
@@ -85,63 +102,10 @@ module CipherStash
       ore.encrypt(term)
     end
 
+    # Return the text processor for this index
     def text_processor
       @text_processor ||= Analysis::TextProcessor.new(@settings["mapping"])
     end
-
-    INDEX_OPS = {
-      "exact" => {
-        "eq" => -> (idx, t) do
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), exact: { term: idx.ore_encrypt(t).to_s } }]
-        end,
-      },
-      "range" => {
-        "eq" => -> (idx, t) do
-          et = idx.ore_encrypt(t)
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), range: { lower: et.to_s, upper: et.to_s } }]
-        end,
-        "lt" => -> (idx, t) do
-          et = idx.ore_encrypt(..t-1)
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), range: { lower: et.first.to_s, upper: et.last.to_s } }]
-        end,
-        "lte" => -> (idx, t) do
-          et = idx.ore_encrypt(..t)
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), range: { lower: et.first.to_s, upper: et.last.to_s } }]
-        end,
-        "gt" => -> (idx, t) do
-          et = idx.ore_encrypt(t+1..)
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), range: { lower: et.first.to_s, upper: et.last.to_s } }]
-        end,
-        "gte" => -> (idx, t) do
-          et = idx.ore_encrypt(t..)
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), range: { lower: et.first.to_s, upper: et.last.to_s } }]
-        end,
-        "between" => -> (idx, min, max) do
-          et = idx.ore_encrypt(min..max)
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), range: { lower: et.first.to_s, upper: et.last.to_s } }]
-        end,
-      },
-      "match" => {
-        "match" => -> (idx, s) do
-          id = UUIDHelpers.blob_from_uuid(idx.id)
-          idx.text_processor.perform(s).map { |t| { indexId: id, exact: { term: idx.ore_encrypt(t).to_s } } }
-        end,
-      },
-      "dynamic-match" => {
-        "match" => -> (idx, s) do
-          id = UUIDHelpers.blob_from_uuid(idx.id)
-          idx.text_processor.perform(s).map { |t| { indexId: id, exact: { term: idx.ore_encrypt(t).to_s } } }
-        end,
-      },
-      "field-dynamic-match" => {
-        "match" => -> (idx, f, s) do
-          id = UUIDHelpers.blob_from_uuid(idx.id)
-          idx.text_processor.perform(s).map { |t| { indexId: id, exact: { term: idx.ore_encrypt("#{f}:#{t}").to_s } } }
-        end,
-      },
-    }
-
-    private_constant :INDEX_OPS
 
     private
 
@@ -149,42 +113,6 @@ module CipherStash
       @ore ||= begin
                  ORE::AES128.new([@settings["meta"]["$prfKey"]].pack("H*"), [@settings["meta"]["$prpKey"]].pack("H*"), 64, 8)
                end
-    end
-
-    def scalar_vector(id, record)
-      field_name = @settings["mapping"]["field"]
-      term = record[field_name]
-
-      if term.nil?
-        $stderr.puts "Did not find value for #{field_name.inspect} in #{record.inspect}"
-      else
-        { indexId: blob_from_uuid(@id), terms: [{ term: ore_encrypt(term).to_s, link: id }] }
-      end
-    end
-
-    def match_vector(id, record)
-      field_names = @settings["mapping"]["fields"]
-      raw_terms = field_names.map { |n| record[n] }
-
-      terms = raw_terms.map { |s| text_processor.perform(s) }.flatten
-
-      { indexId: blob_from_uuid(@id), terms: terms.map { |t| { term: ore_encrypt(t).to_s, link: id } } }
-    end
-
-    def dynamic_match_vector(id, record)
-      raw_terms = collect_string_fields(record).map(&:last)
-
-      terms = raw_terms.map { |s| text_processor.perform(s) }.flatten
-
-      { indexId: blob_from_uuid(@id), terms: terms.map { |t| { term: ore_encrypt(t).to_s, link: id } } }
-    end
-
-    def field_dynamic_match_vector(id, record)
-      raw_terms = collect_string_fields(record)
-
-      terms = raw_terms.map { |f, s| text_processor.perform(s).map { |b| "#{f}:#{b}" } }.flatten
-
-      { indexId: blob_from_uuid(@id), terms: terms.map { |t| { term: ore_encrypt(t).to_s, link: id } } }
     end
 
     def collect_string_fields(record, prefix = "")

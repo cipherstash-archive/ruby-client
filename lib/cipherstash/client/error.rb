@@ -51,6 +51,9 @@ module CipherStash
 
       # Some aspect of the profile was not configured correctly.
       class InvalidProfileError < Error; end
+
+      # Some aspect of the schema was not correct.
+      class InvalidSchemaError < Error; end
     end
   end
 end

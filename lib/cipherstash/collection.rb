@@ -51,12 +51,12 @@ module CipherStash
     # @raise [CipherStash::Client::Error::RPCFailure] if a low-level communication problem with the server caused the insert to fail.
     #
     def insert(record, store_record: true)
-      id = SecureRandom.uuid
+      uuid = SecureRandom.uuid
 
-      vectors = @indexes.map { |idx| idx.analyze(id, record) }.compact
-      @rpc.put(self, id, store_record ? record : nil, vectors)
+      vectors = @indexes.map { |idx| idx.analyze(uuid, record) }.compact
+      @rpc.put(self, uuid, store_record ? record : nil, vectors)
 
-      id
+      uuid
     end
 
     # Update-or-insert a record in the collection.
