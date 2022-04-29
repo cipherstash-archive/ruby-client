@@ -12,7 +12,7 @@ Gem::Specification.new do |s|
 
   s.platform = Gem::Platform::RUBY
 
-  s.summary  = "A template gem"
+  s.summary  = "Official client for the CipherStash encrypted searchable data store"
 
   s.authors  = ["Matt Palmer", "Dan Draper"]
   s.email    = ["matt@cipherstash.com"]
