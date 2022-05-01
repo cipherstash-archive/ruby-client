@@ -42,7 +42,7 @@ module CipherStash
         base_term = record[field_name]
 
         term = if @settings["mapping"]["fieldType"] == "string"
-                 orderise_string(base_term).tap { |v| p :STRING, base_term, v }
+                 orderise_string(base_term)
                else
                  [base_term]
                end
@@ -78,12 +78,10 @@ module CipherStash
           # '}' => 30 (unused), '~' => 31.  0 is kept as "no character" so
           # that short strings sort before longer ones.
           .map { |c| c.ord - 96 }
-          .tap { |v| p :CHARSTR, v }
           # Turn the whole thing into one giant number, with each character
           # occupying five bits of said number.
-          .inject(0) { |i, c| p :I, i; (i << 5) + c }
+          .inject(0) { |i, c| (i << 5) + c }
 
-        p :SMOLN, n
         # Now we need to turn the number into one whose in-memory representation
         # has a length in bits that is a multiple 64.  This is to ensure that
         # the first character has the most-significant bits possible, so it
@@ -92,16 +90,12 @@ module CipherStash
           n = n << (64 - n.bit_length % 64)
         end
 
-        p :BIGN, n
-
         # And now we can turn all that gigantic mess into an array of terms
         [].tap do |terms|
           while n > 0
-          p :NNN, n, terms
             terms.unshift(n % 2**64)
             n >>= 64
           end
-          p :TERMS, terms
         end[0, 6]
       end
     end
