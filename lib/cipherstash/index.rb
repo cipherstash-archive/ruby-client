@@ -71,7 +71,7 @@ module CipherStash
     #
     # @param record [Object] the record data to analyze.
     #
-    # @return [Documents::Vector]
+    # @return [Documents::Vector, NilClass] either a vector of encrypted terms to insert into the data store, or `NilClass` if we couldn't find anything to index.
     #
     def analyze(id, record)
       raise RuntimeError, "Virtual method analyze called"

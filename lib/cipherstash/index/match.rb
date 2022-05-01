@@ -21,6 +21,10 @@ module CipherStash
         field_names = @settings["mapping"]["fields"]
         raw_terms = field_names.map { |n| record[n] }
 
+        if raw_terms.all?(&:nil?)
+          return nil
+        end
+
         terms = raw_terms.map { |s| text_processor.perform(s) }.flatten
 
         { indexId: blob_from_uuid(@id), terms: terms.map { |t| { term: [ore_encrypt(t).to_s], link: blid } } }
