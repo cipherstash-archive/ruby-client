@@ -19,20 +19,38 @@ This is a Ruby (with Rust backend) client for the [CipherStash encrypted, search
 
 # Installation
 
-As `cipherstash-client` uses a Rust-based library (`ore-rs`) for its underlying cryptography, installation is a bit trickier than most gems.
+As `cipherstash-client` uses Rust-based libraries (`ore-rs` and `enveloperb`) for its underlying cryptography, installation can be a bit trickier than for most gems.
+
+We provide pre-built native gems, which contain the underlying cryptographic primitive code pre-compiled, for platforms we officially support.
+Those platforms are:
+
+* Linux `x86_64` and `aarch64` ("arm64"); and
+* macOS `x86_64` and `arm64`
+
 
 ## Pre-requisites
 
+### gRPC
+
+The `grpc` gem, as packaged, is currently [broken for Darwin arm64 users](https://github.com/grpc/grpc/issues/28631).
+On this platform, you must manually install this gem from source before installing `cipherstash-client`.
+If you have XCode and friends installed, this should be as straightforward as:
+
+```
+gem install grpc --platform source
+```
+
 ### Rust
 
-To build the dependencies of `cipherstash-client`, you must have at least Rust 1.59 installed.
-If you are on an arm64 machine (M1 Mac, for example) you will need to be running a recent Rust nightly.
-We'll have better docs on how to do that in the future; for now, if you don't know how to do that, this gem *probably* isn't for you just yet.
+For platforms we don't (yet) officially support, you will need to have at least Rust 1.59.0 installed.
+If you are on an arm64 machine (M1 Mac, for example) you will need to be running a recent Rust nightly for SIMD intrinsics support.
 
 
 ## Da gem!  Da gem!
 
-So, if that's all good, you can install it as a gem:
+Once the above pre-requisites are all sorted, you can go ahead and install `cipherstash-client` itself.
+
+The basic option is to install it as a gem directly:
 
     gem install cipherstash-client
 
