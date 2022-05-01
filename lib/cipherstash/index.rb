@@ -8,6 +8,7 @@ require_relative "./index/range"
 require_relative "./index/match"
 require_relative "./index/dynamic_match"
 require_relative "./index/field_dynamic_match"
+require_relative "./index/field_dynamic_exact"
 
 module CipherStash
   # Represents an index on a CipherStash collection.
@@ -28,6 +29,8 @@ module CipherStash
         DynamicMatch.new(id, settings)
       when "field-dynamic-match"
         FieldDynamicMatch.new(id, settings)
+      when "field-dynamic-exact"
+        FieldDynamicExact.new(id, settings)
       else
         raise Error::InvalidSchemaError, "Unknown index kind #{settings["mapping"]["kind"].inspect}"
       end
