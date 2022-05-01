@@ -22,6 +22,7 @@ module CipherStash
 
         if term.nil?
           $stderr.puts "Did not find value for #{field_name.inspect} in #{record.inspect}"
+          nil
         else
           { indexId: blob_from_uuid(@id), terms: [{ term: [ore_encrypt(term).to_s], link: blid }] }
         end
