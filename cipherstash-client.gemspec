@@ -26,9 +26,8 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "aws-sdk-kms", "~> 1.0"
   s.add_runtime_dependency 'cbor', '~> 0.5.9.6'
   s.add_runtime_dependency "cipherstash-grpc", "= 0.20220428.11"
-  s.add_runtime_dependency "deep_merge", "~> 1.2"
-  s.add_runtime_dependency "enveloperb"
-  s.add_runtime_dependency "ore-rs"
+  s.add_runtime_dependency "enveloperb", "~> 0.0"
+  s.add_runtime_dependency "ore-rs", "~> 0.0"
 
   s.add_development_dependency 'bundler'
   s.add_development_dependency 'fakefs'

@@ -19,16 +19,15 @@ module CipherStash
         profile_data = begin
           logger.debug("CipherStash::Profile.load") { "Reading data for profile '#{profile_name}' from ~/.cipherstash/#{profile_name}/profile-config.json" }
           profile_data = JSON.parse(File.read(file_path(profile_name, "profile-config.json")))
-
         rescue Errno::ENOENT
           if maybe_profile_name.nil?
-            {}
+            default_profile
           else
             raise Error::LoadProfileFailure, "Profile '#{profile_name}' does not exist"
           end
         rescue JSON::ParserError => ex
           raise Error::LoadProfileFailure, "Profile '#{profile_name}' has an invalid profile-config.json: #{ex.message}"
-        end.deep_merge(default_profile)
+        end
 
         profile_data = override_via_environment(profile_data, logger)
 
