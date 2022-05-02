@@ -57,7 +57,7 @@ module CipherStash
       private
 
       def orderise_string(s)
-        unless s.force_encoding("US-ASCII").valid_encoding?
+        unless s.clone.force_encoding("US-ASCII").valid_encoding?
           raise Client::Error::InvalidRecordError, "Can only order strings that are pure ASCII"
         end
 
