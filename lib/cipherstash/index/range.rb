@@ -83,12 +83,10 @@ module CipherStash
           .inject(0) { |i, c| (i << 5) + c }
 
         # Now we need to turn the number into one whose in-memory representation
-        # has a length in bits that is a multiple 64.  This is to ensure that
+        # has a length in bits that is a multiple of 64.  This is to ensure that
         # the first character has the most-significant bits possible, so it
         # sorts the highest.
-        if n.bit_length % 64 != 0
-          n = n << (64 - n.bit_length % 64)
-        end
+        n = n << (64 - (s.length * 5) % 64)
 
         # And now we can turn all that gigantic mess into an array of terms
         [].tap do |terms|
@@ -96,6 +94,7 @@ module CipherStash
             terms.unshift(n % 2**64)
             n >>= 64
           end
+        # Only six ORE ciphertexts can fit into the database
         end[0, 6]
       end
     end
