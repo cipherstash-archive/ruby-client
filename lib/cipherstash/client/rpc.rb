@@ -41,6 +41,7 @@ module CipherStash
         @logger.debug("CipherStash::Client::RPC") { "Connecting to data-service at '#{@profile.service_host}:#{@profile.service_port}'" }
 
         @cipher_engine = @profile.with_kms_credentials do |creds|
+          p :KMSCREDS, creds
           Enveloperb::AWSKMS.new(
             @profile.kms_key_arn,
             aws_access_key_id: creds[:credentials].access_key_id,
