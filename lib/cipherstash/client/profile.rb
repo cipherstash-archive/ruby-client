@@ -269,7 +269,7 @@ module CipherStash
           role_arn: @data["keyManagement"]["awsCredentials"]["roleArn"],
           role_session_name: "StashRB",
           web_identity_token_file: file_path("auth-token.jwt"),
-          client: Aws::STS::Client.new,
+          client: Aws::STS::Client.new(region: region),
           before_refresh: ->(_) {
             File.write(file_path("auth-token.jwt"), data_service_credentials[:access_token], perm: 0600)
           }
