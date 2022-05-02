@@ -3,13 +3,11 @@ require "fileutils"
 module ExampleMethods
 	# Any method that should be available to examples should be
 	# defined in here.
-  def create_fake_profile(name, values = {})
+  def create_fake_profile(name)
+    profile = default_profile.tap { |p| yield p if block_given? }
+
     FileUtils.mkdir_p(File.expand_path("~/.cipherstash/#{name}"))
-    File.write(File.expand_path("~/.cipherstash/#{name}/profile-config.json"), default_profile.tap do |p|
-      values.each do |k, v|
-        nested_set(p, k, v)
-      end
-    end.to_json)
+    File.write(File.expand_path("~/.cipherstash/#{name}/profile-config.json"), profile.to_json)
   end
 
   def with_env(vars)
