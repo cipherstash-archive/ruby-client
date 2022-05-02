@@ -179,10 +179,13 @@ module CipherStash
       # scenes.
       #
       # @return [Hash<access_token: String>]
-      def data_service_credentials
-        @data_service_credentials ||= DataServiceCredentialsManager.new(self, @logger)
+      #
+      def with_data_service_credentials(&blk)
+        creds_provider = DataServiceCredentialsManager.new(self, @logger)
 
-        @data_service_credentials.fresh_credentials
+        CredsProxy.new(creds_provider) do
+          blk.call(creds_provider.fresh_credentials)
+        end
       end
 
       # Generate an arbitrary object using a fresh set of KMS credentials.
@@ -213,12 +216,8 @@ module CipherStash
         region = kms_key_arn.split(":")[3]
         creds_provider = aws_credentials_provider(**symbolize_keys(@data["keyManagement"]["awsCredentials"]))
 
-        CredsProxy.new do |cur|
-          if cur.nil? || creds_provider.expired?
-            blk.call({ region: region, credentials: creds_provider.credentials })
-          else
-            cur
-          end
+        CredsProxy.new(creds_provider) do
+          blk.call({ region: region, credentials: creds_provider.credentials })
         end
       end
 
@@ -271,7 +270,9 @@ module CipherStash
           web_identity_token_file: file_path("auth-token.jwt"),
           client: Aws::STS::Client.new(region: region),
           before_refresh: ->(_) {
-            File.write(file_path("auth-token.jwt"), data_service_credentials[:access_token], perm: 0600)
+            with_data_service_credentials do |creds|
+              File.write(file_path("auth-token.jwt"), creds[:access_token], perm: 0600)
+            end
           }
         ).tap do |creds|
           class << creds

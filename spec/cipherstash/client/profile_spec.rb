@@ -178,14 +178,14 @@ describe CipherStash::Client::Profile do
     end
   end
 
-  describe "#data_service_credentials" do
+  describe "#with_data_service_credentials" do
     context "with identityProvider.kind=Auth0-AccessToken" do
       before(:each) do
         create_fake_profile("default", "identityProvider" => { kind: "Auth0-AccessToken", accessToken: "s3kr1t" })
       end
 
       it "returns the access token in the profile" do
-        expect(profile.data_service_credentials).to eq({ access_token: "s3kr1t" })
+        expect(profile.with_data_service_credentials { |x| x }[:access_token]).to eq("s3kr1t")
       end
     end
   end
