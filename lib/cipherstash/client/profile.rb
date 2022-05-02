@@ -1,9 +1,8 @@
 require "aws-sdk-core/credentials"
-require "deep_merge"
 require "json"
 
 require_relative "./error"
-require_relative "./data_service_credentials_manager"
+require_relative "./auth0_device_code_credentials"
 require_relative "./creds_proxy"
 
 module CipherStash
@@ -201,6 +200,11 @@ module CipherStash
       # The name of the profile.
       attr_reader :name
 
+      # The defined service workspace for this profile.
+      def workspace
+        @data["service"]["workspace"]
+      end
+
       # The defined service host for this profile.
       def service_host
         @data["service"]["host"]
@@ -222,20 +226,23 @@ module CipherStash
         @data["identityProvider"]
       end
 
-      # The credentials needed to access the data-service.
+      # Generate an arbitrary object using a fresh CipherStash access token.
       #
-      # Call this method every time you need creds, don't cache the return value yourself.
-      # Credentials are usually short-lived, and need periodic refreshing.  This method
-      # handles detecting when credentials need refreshing and handles that behind the
-      # scenes.
+      # The block passed to this method will be called whenever the access
+      # token expires, so that an expensive object creation doesn't have to
+      # be repeated on every call.
       #
-      # @return [Hash<access_token: String>]
+      # @see #with_kms_credentials because it has a more in-depth explanation of what's going on and why.
       #
-      def with_data_service_credentials(&blk)
-        creds_provider = DataServiceCredentialsManager.new(self, @logger)
+      def with_access_token(&blk)
+        creds_provider = access_token_provider(**symbolize_keys(identity_provider_config))
 
-        CredsProxy.new(creds_provider) do
-          blk.call(creds_provider.fresh_credentials)
+        if blk.nil?
+          creds_provider.fresh_credentials
+        else
+          CredsProxy.new(creds_provider) do
+            blk.call(creds_provider.fresh_credentials)
+          end
         end
       end
 
@@ -281,14 +288,9 @@ module CipherStash
         OpenSSL::HMAC.digest(OpenSSL::Digest::SHA256.new, naming_key, name)
       end
 
-      # Rummage up the cached token for this profile.
-      #
-      # If the token can't be read, returns a null token, because you're supposed to
-      # refresh the token if it's out-of-date anyway.
-      def read_cached_token
-        JSON.parse(File.read(file_path("auth-token.json")))
-      rescue
-        { "accessToken": "", "refreshToken": "", expiry: 0 }
+      # Write a new token to the cache
+      def cache_access_token(t)
+        File.write(file_path("auth-token.json"), t.to_json)
       end
 
       private
@@ -297,6 +299,40 @@ module CipherStash
         Hash[h.map do |k, v|
           [k.to_sym, v.is_a?(Hash) ? symbolize_keys(v) : v]
         end]
+      end
+
+      def access_token_provider(kind:, **opts)
+        begin
+          case kind
+          when "Auth0-AccessToken"
+            access_token_static_credentials(**opts)
+          when "Auth0-DeviceCode"
+            access_token_device_code_credentials(**opts)
+          else
+            raise Error::InvalidProfileError, "Unknown identityProvider kind: #{kind}"
+          end
+        rescue ArgumentError => ex
+          raise Error::InvalidProfileError, "Invalid identityProvider configuration #{opts.inspect}: #{ex.message}"
+        end
+      end
+
+      def access_token_static_credentials(accessToken:)
+        @logger.debug("CipherStash::Profile") { "Using static access token" }
+        Struct.new(:fresh_credentials, :expired?).new({ access_token: accessToken }, false)
+      end
+
+      # Rummage up the cached token for this profile.
+      #
+      # If the token can't be read for any reason, just return a null token, because you're supposed to refresh the token if it's out-of-date anyway.
+      def cached_token
+        JSON.parse(File.read(file_path("auth-token.json")))
+      rescue
+        { "accessToken": "", "refreshToken": "", expiry: 0 }
+      end
+
+      def access_token_device_code_credentials(host:, clientId:)
+        @logger.debug("CipherStash::Profile") { "Using device code authentication" }
+        Auth0DeviceCodeCredentials.new(self, cached_token, @logger)
       end
 
       def aws_credentials_provider(kind:, **opts)
@@ -315,15 +351,15 @@ module CipherStash
       end
 
       def aws_federated_credentials(roleArn:, region:)
+        @logger.debug("CipherStash::Profile") { "Federating to #{@data["keyManagement"]["awsCredentials"]["roleArn"].inspect} for AWS credentials" }
         Aws::AssumeRoleWebIdentityCredentials.new(
           role_arn: @data["keyManagement"]["awsCredentials"]["roleArn"],
           role_session_name: "StashRB",
           web_identity_token_file: file_path("auth-token.jwt"),
           client: Aws::STS::Client.new(region: region),
           before_refresh: ->(_) {
-            with_data_service_credentials do |creds|
-              File.write(file_path("auth-token.jwt"), creds[:access_token], perm: 0600)
-            end
+            File.write(file_path("auth-token.jwt"), with_access_token[:access_token], perm: 0600)
+            @logger.debug("CipherStash::Profile#aws_federated_credentials") { "Wrote a fresh(ish) token to #{file_path("auth-token.jwt")}" }
           }
         ).tap do |creds|
           class << creds
