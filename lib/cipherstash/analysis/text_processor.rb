@@ -32,7 +32,7 @@ module CipherStash
       # @return [String]
       #
       def perform(str)
-        str.each { |s| $stderr.puts "String with value #{s.inspect} has encoding #{s.encoding}" if s.encoding != Encoding.find("UTF-8") }
+        Array(str).flatten.each { |s| $stderr.puts "String with value #{s.inspect} has encoding #{s.encoding}" if s.encoding != Encoding.find("UTF-8") }
 
         tokens = @tokenizer.perform(str)
         @token_filters.inject(tokens) do |result, stage|
