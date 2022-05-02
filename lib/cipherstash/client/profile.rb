@@ -85,21 +85,69 @@ module CipherStash
         end
 
         def override_via_environment(data, logger)
-          # Strings
+          if ENV.key?("CS_ACCESS_TOKEN")
+            %w{CS_IDP_CLIENT_ID CS_IDP_CLIENT_SECRET}.each do |k|
+              if ENV.key?(k)
+                raise Error::InvalidProfileError, "Cannot set both #{k} and CS_ACCESS_TOKEN"
+              end
+            end
+
+            logger.debug("CipherStash::Profile.load") { "Overriding identityProvider because CS_ACCESS_TOKEN is set" }
+
+            data["identityProvider"] = {
+              "kind" => "Auth0-AccessToken",
+              "accessToken" => ENV["CS_ACCESS_TOKEN"],
+            }
+          else
+            data["identityProvider"] ||= {}
+            if ENV.key?("CS_IDP_CLIENT_ID")
+              logger.debug("CipherStash::Profile.load") { "Overriding identityProvider kind because CS_IDP_CLIENT_ID is set" }
+              data["identityProvider"]["kind"] = "Auth0-DeviceCode"
+              data["identityProvider"]["clientId"] = ENV["CS_IDP_CLIENT_ID"]
+            end
+            if ENV.key?("CS_IDP_CLIENT_SECRET")
+              logger.debug("CipherStash::Profile.load") { "Overriding identityProvider kind because CS_IDP_CLIENT_SECRET is set" }
+              data["identityProvider"]["kind"] = "Auth0-Machine2Machine"
+              data["identityProvider"]["clientSecret"] = ENV["CS_IDP_CLIENT_SECRET"]
+            end
+          end
+
+          data["keyManagement"] ||= {}
+          data["keyManagement"]["awsCredentials"] ||= {}
+          if ENV.key?("CS_KMS_FEDERATION_ROLE_ARN")
+            %w{CS_AWS_ACCESS_KEY_ID CS_AWS_SECRET_ACCESS_KEY CS_AWS_SESSION_TOKEN}.each do |k|
+              if ENV.key?(k)
+                raise Error::InvalidProfileError, "Cannot set both #{k} and CS_KMS_FEDERATION_ROLE_ARN"
+              end
+            end
+
+            logger.debug("CipherStash::Profile.load") { "Overriding keyManagement.awsCredentials kind because CS_KMS_FEDERATION_ROLE_ARN is set" }
+
+            data["keyManagement"]["awsCredentials"]["kind"] = "Federated"
+            data["keyManagement"]["awsCredentials"]["roleArn"] = ENV["CS_KMS_FEDERATION_ROLE_ARN"]
+          elsif ENV.key?("CS_AWS_ACCESS_KEY_ID")
+            logger.debug("CipherStash::Profile.load") { "Overriding keyManagement.awsCredentials kind because CS_KMS_FEDERATION_ROLE_ARN is set" }
+
+            data["keyManagement"]["awsCredentials"]["kind"] = "Explicit"
+            data["keyManagement"]["awsCredentials"]["accessKeyId"] = ENV["CS_AWS_ACCESS_KEY_ID"]
+          else
+            %w{CS_AWS_SECRET_ACCESS_KEY CS_AWS_SESSION_TOKEN}.each do |k|
+              if ENV.key?(k)
+                raise Error::InvalidProfileError, "Cannot use environment variable #{k} unless CS_AWS_ACCESS_KEY_ID is set"
+              end
+            end
+          end
+
+          # Strings that are just leaf values and have no impact on kinds,
+          # or conflicts with other variables
           {
             "CS_WORKSPACE"               => "service.workspace",
             "CS_SERVICE_FQDN"            => "service.host",
             "CS_SERVICE_TRUST_ANCHOR"    => "service.trustAnchor",
             "CS_IDP_HOST"                => "identityProvider.host",
-            "CS_IDP_CLIENT_ID"           => "identityProvider.clientId",
-            "CS_IDP_CLIENT_SECRET"       => "identityProvider.clientSecret",
-            "CS_ACCESS_TOKEN"            => "identityProvider.accessToken",
             "CS_KMS_KEY_ARN"             => "keyManagement.key.arn",
             "CS_KMS_KEY_REGION"          => "keyManagement.key.region",
             "CS_NAMING_KEY"              => "keyManagement.key.namingKey",
-            "CS_KMS_FEDERATION_ROLE_ARN" => "keyManagement.awsCredentials.roleArn",
-            "CS_AWS_ACCESS_KEY_ID"       => "keyManagement.awsCredentials.accessKeyId",
-            "CS_AWS_SECRET_ACCESS_KEY"   => "keyManagement.awsCredentials.secretAccessKey",
             "CS_AWS_REGION"              => "keyManagement.awsCredentials.region",
           }.each do |var, path|
             if ENV.key?(var)
@@ -124,7 +172,11 @@ module CipherStash
         def nested_set(h, k, v)
           f, r = k.split(".", 2)
           if r.nil?
-            h[k] = v
+            if v.nil?
+              h.delete(k)
+            else
+              h[k] = v
+            end
           else
             h[f] ||= {}
             h[f] = nested_set(h[f], r, v)
