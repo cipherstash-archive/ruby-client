@@ -58,7 +58,8 @@ module CipherStash
             "/oauth/token",
             grant_type: "refresh_token",
             refresh_token: @cached_token["refreshToken"],
-            client_id: idp_client_id
+            client_id: idp_client_id,
+            scope: idp_scopes.join(" ")
           )
 
           if res.code == "200"
