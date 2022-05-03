@@ -7,6 +7,16 @@ module CipherStash
       # The exception message will describe the exact problem.
       class LoadProfileFailure < Error; end
 
+      # An error occurred while attempting to create a profile.
+      #
+      # The exception message will describe the exact problem.
+      class CreateProfileFailure < Error; end
+
+      # An error occurred while attempting to save a profile.
+      #
+      # The exception message will describe the exact problem.
+      class SaveProfileFailure < Error; end
+
       # An error occured whilst trying to decrypt a ciphertext.
       #
       # The exception message will describe the exact problem.
