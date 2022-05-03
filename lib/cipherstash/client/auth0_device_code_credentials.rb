@@ -1,3 +1,5 @@
+require "net/http"
+
 module CipherStash
   class Client
     # Responsible for hassling Auth0 via device code auth when we need to get a fresh access token

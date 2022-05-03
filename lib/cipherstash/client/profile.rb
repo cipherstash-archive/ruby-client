@@ -1,5 +1,6 @@
 require "aws-sdk-core/credentials"
 require "json"
+require "net/http"
 
 require_relative "./error"
 require_relative "./auth0_device_code_credentials"
@@ -11,7 +12,30 @@ module CipherStash
     #
     # @private
     class Profile
-      def self.load(maybe_name, logger)
+      ENV_OPT_MAPPING = {
+        "CS_PROFILE_NAME"            => :profileName,
+        "CS_WORKSPACE"               => :workspace,
+        "CS_SERVICE_FQDN"            => :serviceFqdn,
+        "CS_SERVICE_PORT"            => :servicePort,
+        "CS_SERVICE_TRUST_ANCHOR"    => :serviceTrustAnchor,
+        "CS_IDP_HOST"                => :idpHost,
+        "CS_IDP_CLIENT_ID"           => :idpClientId,
+        "CS_IDP_CLIENT_SECRET"       => :idpClientSecret,
+        "CS_ACCESS_TOKEN"            => :accessToken,
+        "CS_KMS_KEY_ARN"             => :kmsKeyArn,
+        "CS_KMS_KEY_REGION"          => :kmsKeyRegion,
+        "CS_NAMING_KEY"              => :namingKey,
+        "CS_KMS_FEDERATION_ROLE_ARN" => :kmsFederationRoleArn,
+        "CS_AWS_ACCESS_KEY_ID"       => :awsAccessKeyId,
+        "CS_AWS_SECRET_ACCESS_KEY"   => :awsSecretAccessKey,
+        "CS_AWS_REGION"              => :awsRegion,
+      }
+
+      OPT_ENV_MAPPING = ENV_OPT_MAPPING.invert
+
+      private_constant :ENV_OPT_MAPPING, :OPT_ENV_MAPPING
+
+      def self.load(maybe_name, logger, **opts)
         maybe_profile_name = resolve_profile_name(maybe_name)
         profile_name = maybe_profile_name || "default"
 
@@ -28,9 +52,41 @@ module CipherStash
           raise Error::LoadProfileFailure, "Profile '#{profile_name}' has an invalid profile-config.json: #{ex.message}"
         end
 
-        profile_data = override_via_environment(profile_data, logger)
+        profile_data = override_via_environment(override_via_options(profile_data, opts, logger), logger)
 
         Profile.new(profile_name, profile_data, logger)
+      end
+
+      def self.create(name, logger, **opts)
+        begin
+          Dir.mkdir(File.expand_path("~/.cipherstash"))
+          logger.debug("CipherStash::Client::Profile.create") { "Created ~/.cipherstash" }
+        rescue Errno::EEXIST
+          # This Is Fine (sip)
+          logger.debug("CipherStash::Client::Profile.create") { "~/.cipherstash already exists" }
+        rescue => ex
+          raise Error::CreateProfileFailure, "Could not create ~/.cipherstash: #{ex.message} (#{ex.class})"
+        end
+
+        begin
+          Dir.mkdir(File.expand_path("~/.cipherstash/#{name}"))
+          logger.debug("CipherStash::Client::Profile.create") { "Created ~/.cipherstash/#{name}" }
+        rescue Errno::EEXIST
+          raise Error::CreateProfileFailure, "Could not create profile #{name.inspect}: already exists"
+        rescue => ex
+          raise Error::CreateProfileFailure, "Could not create profile directory ~/.cipherstash/#{name}: #{ex.message} (#{ex.class})"
+        end
+
+        begin
+          File.write(File.expand_path("~/.cipherstash/#{name}/profile-config.json"), default_profile.to_json)
+          logger.debug("CipherStash::Client::Profile.create") { "Wrote ~/.cipherstash/#{name}/profile-config.json" }
+        rescue => ex
+          raise Error::CreateProfileFailure, "Could not write ~/.cipherstash/#{name}/profile-config.json: #{ex.message} (#{ex.class})"
+        end
+
+        profile = Profile.load(name, logger, **opts)
+        profile.refresh_from_console
+        profile.save
       end
 
       class << self
@@ -77,91 +133,108 @@ module CipherStash
               "port" => 443,
             },
             "identityProvider" => {
-              "host"     => "https://auth.cipherstash.com/",
+              "kind"     => "Auth0-DeviceCode",
+              "host"     => "auth.cipherstash.com",
               "clientId" => "CtY9DNGongoSvZaAwbb6sw0Hr7Gl7pg7",
             },
           }
         end
 
+        def override_via_options(data, opts, logger)
+          override_profile(data, opts, logger, ->(n) { n })
+        end
+
         def override_via_environment(data, logger)
-          if ENV.key?("CS_ACCESS_TOKEN")
-            %w{CS_IDP_CLIENT_ID CS_IDP_CLIENT_SECRET}.each do |k|
-              if ENV.key?(k)
-                raise Error::InvalidProfileError, "Cannot set both #{k} and CS_ACCESS_TOKEN"
+          opts = ENV_OPT_MAPPING.each.with_object({}) { |(k, v), o| o[v] = ENV[k] if ENV.key?(k) }
+
+          override_profile(data, opts, logger, ->(n) { OPT_ENV_MAPPING[n] })
+        end
+
+        def override_profile(data, opts, logger, name_xlat)
+          if opts[:accessToken]
+            %i{idpClientId idpClientSecret}.each do |k|
+              if opts.key?(k)
+                raise Error::InvalidProfileError, "Cannot set both #{name_xlat.call(k)} and #{name_xlat.call(:accessToken)}"
               end
             end
 
-            logger.debug("CipherStash::Profile.load") { "Overriding identityProvider because CS_ACCESS_TOKEN is set" }
+            logger.debug("CipherStash::Profile.override_profile") { "Setting identityProvider.kind to Auth0-AccessToken because #{name_xlat.call(:accessToken)} is set" }
 
             data["identityProvider"] = {
               "kind" => "Auth0-AccessToken",
-              "accessToken" => ENV["CS_ACCESS_TOKEN"],
+              "accessToken" => opts[:accesstoken],
             }
           else
             data["identityProvider"] ||= {}
-            if ENV.key?("CS_IDP_CLIENT_ID")
-              logger.debug("CipherStash::Profile.load") { "Overriding identityProvider kind because CS_IDP_CLIENT_ID is set" }
-              data["identityProvider"]["kind"] = "Auth0-DeviceCode"
-              data["identityProvider"]["clientId"] = ENV["CS_IDP_CLIENT_ID"]
-            end
-            if ENV.key?("CS_IDP_CLIENT_SECRET")
-              logger.debug("CipherStash::Profile.load") { "Overriding identityProvider kind because CS_IDP_CLIENT_SECRET is set" }
+            if opts.key?(:idpClientSecret) && opts.key?(:idpClientId)
+              logger.debug("CipherStash::Profile.override_profile") { "Setting identityProvider.kind to Auth0-Machine2Machine because #{name_xlat.call(:idpClientSecret)} and #{name_xlat.call(:idpClientId)} are both set" }
               data["identityProvider"]["kind"] = "Auth0-Machine2Machine"
-              data["identityProvider"]["clientSecret"] = ENV["CS_IDP_CLIENT_SECRET"]
+              data["identityProvider"]["clientId"] = opts[:idpClientId]
+              data["identityProvider"]["clientSecret"] = opts[:idpClientSecret]
+            elsif opts.key?(:idpClientId)
+              logger.debug("CipherStash::Profile.override_profile") { "Setting identityProvider.kind to Auth0-DeviceCode because #{name_xlat.call(:idpClientId)} is set" }
+              data["identityProvider"]["kind"] = "Auth0-DeviceCode"
+              data["identityProvider"]["clientId"] = opts[:idpClientId]
             end
           end
 
           data["keyManagement"] ||= {}
           data["keyManagement"]["awsCredentials"] ||= {}
-          if ENV.key?("CS_KMS_FEDERATION_ROLE_ARN")
-            %w{CS_AWS_ACCESS_KEY_ID CS_AWS_SECRET_ACCESS_KEY CS_AWS_SESSION_TOKEN}.each do |k|
-              if ENV.key?(k)
-                raise Error::InvalidProfileError, "Cannot set both #{k} and CS_KMS_FEDERATION_ROLE_ARN"
+          if opts.key?(:kmsFederationRoleArn)
+            %i{awsAccessKeyId awsSecretAccessKey awsSessionToken}.each do |k|
+              if opts.key?(k)
+                raise Error::InvalidProfileError, "Cannot set both #{name_xlat.call(k)} and #{name_xlat.call(:kmsFederationRoleArn)}"
               end
             end
 
-            logger.debug("CipherStash::Profile.load") { "Overriding keyManagement.awsCredentials kind because CS_KMS_FEDERATION_ROLE_ARN is set" }
+            logger.debug("CipherStash::Profile.override_profile") { "Setting keyManagement.awsCredentials.kind to Federated because #{name_xlat.call(:kmsFederationRoleArn)} is set" }
 
             data["keyManagement"]["awsCredentials"]["kind"] = "Federated"
-            data["keyManagement"]["awsCredentials"]["roleArn"] = ENV["CS_KMS_FEDERATION_ROLE_ARN"]
-          elsif ENV.key?("CS_AWS_ACCESS_KEY_ID")
-            logger.debug("CipherStash::Profile.load") { "Overriding keyManagement.awsCredentials kind because CS_KMS_FEDERATION_ROLE_ARN is set" }
+            data["keyManagement"]["awsCredentials"]["roleArn"] = opts[:kmsFederationRoleArn]
+          elsif opts.key?(:awsAccessKeyId)
+            unless opts.key?(:awsSecretAccessKey)
+              raise Error::InvalidProfileError, "Must set #{name_xlat.call(:awsSecretAccessKey)} when setting #{name_xlat.call(:awsAccessKeyId)}"
+            end
+
+            logger.debug("CipherStash::Profile.override_profile") { "Setting keyManagement.awsCredentials.kind to Explicit because #{name_xlat.call(:awsAccessKeyId)} is set" }
 
             data["keyManagement"]["awsCredentials"]["kind"] = "Explicit"
-            data["keyManagement"]["awsCredentials"]["accessKeyId"] = ENV["CS_AWS_ACCESS_KEY_ID"]
+            data["keyManagement"]["awsCredentials"]["accessKeyId"] = opts[:awsAccessKeyId]
+            data["keyManagement"]["awsCredentials"]["secretAccessKey"] = opts[:awsSecretAccessKey]
+            data["keyManagement"]["awsCredentials"]["sessionToken"] = opts[:awsSessionToken] if opts.key?(:awsSessionToken)
           else
-            %w{CS_AWS_SECRET_ACCESS_KEY CS_AWS_SESSION_TOKEN}.each do |k|
-              if ENV.key?(k)
-                raise Error::InvalidProfileError, "Cannot use environment variable #{k} unless CS_AWS_ACCESS_KEY_ID is set"
+            %i{:awsSecretAccessKey :awsSessionToken}.each do |k|
+              if opts.key?(k)
+                raise Error::InvalidProfileError, "Cannot set #{name_xlat.call(k)} unless #{name_xlat.call(:awsAccessKeyId)} is set"
               end
             end
           end
 
-          # Strings that are just leaf values and have no impact on kinds,
-          # or conflicts with other variables
+          # String values that are just leaf values and have no impact on other
+          # values within the profile
           {
-            "CS_WORKSPACE"               => "service.workspace",
-            "CS_SERVICE_FQDN"            => "service.host",
-            "CS_SERVICE_TRUST_ANCHOR"    => "service.trustAnchor",
-            "CS_IDP_HOST"                => "identityProvider.host",
-            "CS_KMS_KEY_ARN"             => "keyManagement.key.arn",
-            "CS_KMS_KEY_REGION"          => "keyManagement.key.region",
-            "CS_NAMING_KEY"              => "keyManagement.key.namingKey",
-            "CS_AWS_REGION"              => "keyManagement.awsCredentials.region",
+            :workspace          => "service.workspace",
+            :serviceFqdn        => "service.host",
+            :serviceTrustAnchor => "service.trustAnchor",
+            :idpHost            => "identityProvider.host",
+            :kmsKeyArn          => "keyManagement.key.arn",
+            :kmsKeyRegion       => "keyManagement.key.region",
+            :namingKey          => "keyManagement.key.namingKey",
+            :awsRegion          => "keyManagement.awsCredentials.region",
           }.each do |var, path|
-            if ENV.key?(var)
-              logger.debug("CipherStash::Profile.load") { "Overriding profile value of #{path} with value from #{var}: #{ENV[var].inspect}" }
-              nested_set(data, path, ENV[var])
+            if opts.key?(var)
+              logger.debug("CipherStash::Profile.override_profile") { "Setting #{path} to #{opts[var].inspect} from #{name_xlat.call(var)}" }
+              nested_set(data, path, opts[var])
             end
           end
 
           # Numberz
           {
-            "CS_SERVICE_PORT" => "service.port",
+            :servicePort => "service.port",
           }.each do |var, path|
-            if ENV.key?(var)
-              logger.debug("CipherStash::Profile.load") { "Overriding profile value of #{path} with value from #{var}: #{ENV[var].inspect}" }
-              nested_set(data, path, ENV[var].to_i)
+            if opts.key?(var)
+              logger.debug("CipherStash::Profile.override_profile") { "Setting #{path} to #{opts[var].inspect} from #{name_xlat.call(var)}" }
+              nested_set(data, path, opts[var].to_i)
             end
           end
 
@@ -291,6 +364,55 @@ module CipherStash
       # Write a new token to the cache
       def cache_access_token(t)
         File.write(file_path("auth-token.json"), t.to_json)
+      end
+
+      # Contact the CipherStash Console and retrieve core profile parameters,
+      # then store them in the profile.
+      def refresh_from_console
+        if workspace.nil?
+          raise Error::InvalidProfileError, "No workspace set"
+        end
+
+        @logger.debug("CipherStash::Client::Profile#refresh_from_console") { "Fetching key details for workspace #{workspace} from console.cipherstash.com" }
+        res = Net::HTTP.start("console.cipherstash.com", 443, use_ssl: true) do |http|
+          req = Net::HTTP::Get.new("/api/meta/workspaces/#{workspace}")
+          req["Authorization"] = "Bearer #{with_access_token[:access_token]}"
+          http.request(req)
+        end
+
+        if res.code != "200"
+          @logger.debug("CipherStash::Client::Profile#refresh_from_console") { "Console response #{res.code}: #{res.body.inspect}" }
+          raise Error::ProfileLoadError, "Console responded to workspace refresh request with HTTP #{res.code}"
+        end
+
+        details = begin
+                    JSON.parse(res.body)
+                  rescue JSON::ParserError => ex
+                    raise Error::ProfileLoadError, "Failed to parse console workspace refresh response: #{ex.message}"
+                  end
+
+        @data["keyManagement"] ||= { "kind" => "AWS-KMS" }
+        @data["keyManagement"]["key"] ||= {}
+        @data["keyManagement"]["key"]["arn"] ||= details["keyId"]
+        @data["keyManagement"]["key"]["namingKey"] ||= details["namingKey"]
+        @data["keyManagement"]["key"]["region"] ||= details["keyRegion"]
+
+        if details["keyRoleArn"]
+          @data["keyManagement"]["awsCredentials"] ||= {
+            "kind" => "Federated",
+            "roleArn" => details["keyRoleArn"],
+            "region" => details["keyRegion"]
+          }
+        end
+      end
+
+      def save
+        begin
+          File.write(file_path("profile-config.json"), @data.to_json)
+          @logger.debug("CipherStash::Client::Profile#save") { "Saved ~/.cipherstash/#{@name}/profile-config.json" }
+        rescue => ex
+          raise Error::SaveProfileFailure, "Failed to save to ~/.cipherstash/#{@name}/profile-config.json: #{ex.message} (#{ex.class})"
+        end
       end
 
       private
