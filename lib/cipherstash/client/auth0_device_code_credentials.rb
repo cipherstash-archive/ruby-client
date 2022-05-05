@@ -39,19 +39,61 @@ module CipherStash
       private
 
       def acquire_new_token
-        if token = try_using_refresh_token
-          @cached_token = token
-          @profile.cache_access_token(@cached_token)
-          return
-        end
+        new_token = if t = try_using_refresh_token
+                      t
+                    else
+                      polling_info = get_device_code_polling_info
+                      prompt_user(polling_info)
+                      poll_for_access_token(polling_info)
+                    end
 
-        polling_info = get_device_code_polling_info
-
-        prompt_user(polling_info)
-
-        @cached_token = poll_for_access_token(polling_info)
+        validate_token!(new_token)
+        @cached_token = new_token
         @logger.debug("Auth0DeviceCodeCredentials#acquire_new_token") { "Access token now expires at #{@cached_token["expiry"].inspect}" }
         @profile.cache_access_token(@cached_token)
+      end
+
+      def validate_token!(token_info)
+        @logger.debug("ohai!") { "Validating token #{token_info.inspect}" }
+        unless token_info.is_a?(Hash)
+          raise Error::AuthenticationFailure, "return value from poll_for_access_token is not a Hash! (got #{access_token.inspect})"
+        end
+
+        unless token_info.key?("accessToken") && token_info.key?("expiry")
+          raise Error::AuthenticationFailure, "return value from poll_for_access_token does not have all required keys (got #{token_info.keys.inspect})"
+        end
+
+
+        access_token = token_info["accessToken"]
+
+        unless access_token =~ /\A[A-Za-z0-9._-]+\z/
+          raise Error::AuthenticationFailure, "access token contains characters that shouldn't be in an access token"
+        end
+
+        token_parts = access_token.split(".", 3)
+        unless token_parts.length == 3
+          raise Error::AuthenticationFailure, "access token does not contain three parts"
+        end
+
+        payload = begin
+                    JSON.parse(token_parts[1].unpack("m").first)
+                  rescue JSON::ParserError => ex
+                    raise Error::AuthenticationFailure, "failed to parse access token payload: #{ex.message}"
+                  end
+
+        unless payload["scope"].split(/\s+/).sort == idp_scopes.sort
+          raise Error::AuthenticationFailure, "access token scopes did not match what we requested (wanted #{idp_scopes.sort.inspect}, got #{payload["scope"].split(/\s+/).sort.inspect})"
+        end
+
+        if @profile.using_kms_federation?
+          unless payload.key?("https://aws.amazon.com/tags")
+            raise Error::AuthenticationFailure, "access token does not contain KMS federation claim"
+          end
+
+          unless payload.fetch("https://aws.amazon.com/tags", {}).fetch("principal_tags", {}).fetch("workspace", []) == ["ws:#{@profile.workspace}"]
+            raise Error::AuthenticationFailure, "access token does not contain KMS federation workspace tag"
+          end
+        end
       end
 
       def try_using_refresh_token
@@ -69,13 +111,14 @@ module CipherStash
 
             begin
               t = JSON.parse(res.body, symbolize_names: true)
-              @cached_token = { "accessToken" => t[:access_token], "refreshToken" => t[:refresh_token], "expiry" => Time.now.to_i + t[:expires_in] }
+              { "accessToken" => t[:access_token], "refreshToken" => t[:refresh_token], "expiry" => Time.now.to_i + t[:expires_in] }
             rescue => ex
               @logger.debug("Auth0DeviceCodeCredentials") { "Response body from /oauth/token: #{res.body.inspect}" }
               raise Error::AuthenticationFailure, "Failed to parse response body from /oauth/token: #{ex.message}"
             end
           else
             @logger.debug("Auth0DeviceCodeCredentials#try_using_refresh_token") { "Refresh token h0rked; HTTP #{res.code}, #{res.body.inspect}" }
+            nil
           end
         end
       end
