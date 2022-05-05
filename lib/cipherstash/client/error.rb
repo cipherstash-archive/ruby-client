@@ -25,6 +25,9 @@ module CipherStash
       # The exception message will describe the exact problem.
       class DecryptionFailure < Error; end
 
+      # An error occured while accessing the CipherStash console.
+      class ConsoleAccessFailure < Error; end
+
       # An error occured while performing a remote procedure call to the data-service.
       class RPCFailure < Error; end
 

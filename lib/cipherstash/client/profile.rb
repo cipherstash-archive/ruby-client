@@ -5,6 +5,7 @@ require "net/http"
 require_relative "./error"
 require_relative "./auth0_device_code_credentials"
 require_relative "./console_access_key_credentials"
+require_relative "./console"
 require_relative "./creds_proxy"
 
 module CipherStash
@@ -391,23 +392,8 @@ module CipherStash
           raise Error::InvalidProfileError, "No workspace set"
         end
 
-        @logger.debug("CipherStash::Client::Profile#refresh_from_console") { "Fetching key details for workspace #{workspace} from console.cipherstash.com" }
-        res = Net::HTTP.start("console.cipherstash.com", 443, use_ssl: true) do |http|
-          req = Net::HTTP::Get.new("/api/meta/workspaces/#{workspace}")
-          req["Authorization"] = "Bearer #{with_access_token[:access_token]}"
-          http.request(req)
-        end
-
-        if res.code != "200"
-          @logger.debug("CipherStash::Client::Profile#refresh_from_console") { "Console response #{res.code}: #{res.body.inspect}" }
-          raise Error::ProfileLoadError, "Console responded to workspace refresh request with HTTP #{res.code}"
-        end
-
-        details = begin
-                    JSON.parse(res.body)
-                  rescue JSON::ParserError => ex
-                    raise Error::ProfileLoadError, "Failed to parse console workspace refresh response: #{ex.message}"
-                  end
+        @logger.debug("CipherStash::Client::Profile#refresh_from_console") { "Fetching KMS/naming key details for workspace #{workspace}" }
+        details = Console.new(access_token: with_access_token[:access_token], logger: @logger).workspace_info(workspace)
 
         @data["keyManagement"] ||= { "kind" => "AWS-KMS" }
         @data["keyManagement"]["key"] ||= {}
