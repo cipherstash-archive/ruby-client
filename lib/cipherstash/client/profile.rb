@@ -162,7 +162,7 @@ module CipherStash
 
             data["identityProvider"] = {
               "kind" => "Auth0-AccessToken",
-              "accessToken" => opts[:accesstoken],
+              "accessToken" => opts[:accessToken],
             }
           else
             data["identityProvider"] ||= {}
@@ -285,7 +285,7 @@ module CipherStash
 
       # The defined service port for this profile.
       def service_port
-        @data["service"]["port"]
+        @data["service"]["port"] || 443
       end
 
       # The list of trust anchors for this profile.
