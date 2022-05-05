@@ -4,6 +4,7 @@ require "net/http"
 
 require_relative "./error"
 require_relative "./auth0_device_code_credentials"
+require_relative "./console_access_key_credentials"
 require_relative "./creds_proxy"
 
 module CipherStash
@@ -168,13 +169,26 @@ module CipherStash
             data["identityProvider"] ||= {}
             if opts.key?(:idpClientSecret) && opts.key?(:idpClientId)
               logger.debug("CipherStash::Profile.override_profile") { "Setting identityProvider.kind to Auth0-Machine2Machine because #{name_xlat.call(:idpClientSecret)} and #{name_xlat.call(:idpClientId)} are both set" }
-              data["identityProvider"]["kind"] = "Auth0-Machine2Machine"
-              data["identityProvider"]["clientId"] = opts[:idpClientId]
-              data["identityProvider"]["clientSecret"] = opts[:idpClientSecret]
+              data["identityProvider"] = {
+                "kind" => "Auth0-Machine2Machine",
+                "host" => "auth.cipherstash.com",
+                "clientId" => opts[:idpClientId],
+                "clientSecret" => opts[:idpClientSecret],
+              }
             elsif opts.key?(:idpClientId)
               logger.debug("CipherStash::Profile.override_profile") { "Setting identityProvider.kind to Auth0-DeviceCode because #{name_xlat.call(:idpClientId)} is set" }
-              data["identityProvider"]["kind"] = "Auth0-DeviceCode"
-              data["identityProvider"]["clientId"] = opts[:idpClientId]
+              data["identityProvider"] = {
+                "kind" => "Auth0-DeviceCode",
+                "host" => "auth.cipherstash.com",
+                "clientId" => opt[:idpClientId],
+              }
+            elsif opts.key?(:idpClientSecret)
+              logger.debug("CipherStash::Profile.override_profile") { "Setting identityProvider.kind to Console-AccessKey because #{name_xlat.call(:idpClientSecret)} is set" }
+              data["identityProvider"] = {
+                "kind" => "Console-AccessKey",
+                "host" => "console.cipherstash.com",
+                "clientSecret" => opts[:idpClientSecret],
+              }
             end
           end
 
@@ -434,6 +448,8 @@ module CipherStash
             access_token_static_credentials(**opts)
           when "Auth0-DeviceCode"
             access_token_device_code_credentials(**opts)
+          when "Console-AccessKey"
+            access_token_console_access_key_credentials(**opts)
           else
             raise Error::InvalidProfileError, "Unknown identityProvider kind: #{kind}"
           end
@@ -459,6 +475,11 @@ module CipherStash
       def access_token_device_code_credentials(host:, clientId:)
         @logger.debug("CipherStash::Profile") { "Using device code authentication" }
         Auth0DeviceCodeCredentials.new(self, cached_token, @logger)
+      end
+
+      def access_token_console_access_key_credentials(host:, clientSecret:)
+        @logger.debug("CipherStash::Profile") { "Using console access key authentication" }
+        ConsoleAccessKeyCredentials.new(self, clientSecret, @logger)
       end
 
       def aws_credentials_provider(kind:, **opts)
