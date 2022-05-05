@@ -352,6 +352,10 @@ module CipherStash
         end
       end
 
+      def using_kms_federation?
+        @data["keyManagement"]["awsCredentials"]["kind"] == "Federated"
+      end
+
       # The KMS key ARN for this profile.
       def kms_key_arn
         @data["keyManagement"]["key"]["arn"]

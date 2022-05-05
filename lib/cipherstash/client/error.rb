@@ -17,6 +17,9 @@ module CipherStash
       # The exception message will describe the exact problem.
       class SaveProfileFailure < Error; end
 
+      # An error occured while obtaining authentication credentials.
+      class AuthenticationFailure < Error; end
+
       # An error occured whilst trying to decrypt a ciphertext.
       #
       # The exception message will describe the exact problem.
