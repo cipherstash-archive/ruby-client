@@ -7,6 +7,7 @@ require_relative "./auth0_device_code_credentials"
 require_relative "./console_access_key_credentials"
 require_relative "./console"
 require_relative "./creds_proxy"
+require_relative "./hash_helper"
 
 module CipherStash
   class Client
@@ -14,6 +15,8 @@ module CipherStash
     #
     # @private
     class Profile
+      include HashHelper
+
       ENV_OPT_MAPPING = {
         "CS_PROFILE_NAME"            => :profileName,
         "CS_WORKSPACE"               => :workspace,
@@ -420,12 +423,6 @@ module CipherStash
       end
 
       private
-
-      def symbolize_keys(h)
-        Hash[h.map do |k, v|
-          [k.to_sym, v.is_a?(Hash) ? symbolize_keys(v) : v]
-        end]
-      end
 
       def access_token_provider(kind:, **opts)
         begin

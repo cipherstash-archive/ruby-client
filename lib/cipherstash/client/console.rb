@@ -25,13 +25,80 @@ module CipherStash
         end
       end
 
+      def create_access_key(name, workspace_id)
+        req = Net::HTTP::Post.new("/api/access-key")
+        req.body = { workspaceId: workspace_id, keyName: name }.to_json
+        req["Content-Type"] = "application/json"
+        res = make_request(req)
+
+        if res.code != "200"
+          @logger.debug("CipherStash::Client::Profile#create_access_key") { "Console response #{res.code}: #{res.body.inspect}" }
+          raise Error::ConsoleAccessFailure, "Console responded to workspace access key creation request with HTTP #{res.code}"
+        end
+
+        k = res.body
+
+        {
+          "keyName" => name,
+          "keyId" => k.split(".").first,
+          "workspaceId" => workspace_id,
+          "createdAt" => Time.now.utc.to_s,
+          "secretKey" => k,
+        }
+      end
+
+      def access_key_list(workspace_id)
+        res = make_request(Net::HTTP::Get.new("/api/access-keys/#{workspace_id}"))
+
+        if res.code != "200"
+          @logger.debug("CipherStash::Client::Profile#access_key_list") { "Console response #{res.code}: #{res.body.inspect}" }
+          raise Error::ConsoleAccessFailure, "Console responded to workspace access key list request with HTTP #{res.code}"
+        end
+
+        if res.body == ""
+          []
+        else
+          begin
+            JSON.parse(res.body)
+          rescue JSON::ParserError => ex
+            raise Error::ConsoleAccessFailure, "Failed to parse response from console: #{ex.message}"
+          end
+        end
+      end
+
+      def delete_access_key(name, workspace_id)
+        req = Net::HTTP::Delete.new("/api/access-key")
+        req.body = { workspaceId: workspace_id, keyName: name }.to_json
+        req["Content-Type"] = "application/json"
+        res = make_request(req)
+
+        if res.code != "200"
+          @logger.debug("CipherStash::Client::Profile#delete_access_key") { "Console response #{res.code}: #{res.body.inspect}" }
+          raise Error::ConsoleAccessFailure, "Console responded to workspace access key deletion request with HTTP #{res.code}"
+        end
+
+        true
+      end
+
       private
 
-      def make_request(req)
+      def make_request(req, retries: 3)
         req["Authorization"] = "Bearer #{@access_token}"
 
-        console_connection do |http|
+        res = console_connection do |http|
           http.request(req)
+        end
+
+        if res.code =~ /^5/
+          if retries > 0
+            @logger.debug("CipherStash::Client::Profile#make_request") { "Retrying because console returned HTTP #{res.code}: #{res.body.inspect}" }
+            make_request(req, retries: retries - 1)
+          else
+            @logger.debug("CipherStash::Client::Profile#make_request") { "Our of retries, final console response is HTTP #{res.code}: #{res.body.inspect}" }
+            res
+          end
+        else
+          res
         end
       end
 

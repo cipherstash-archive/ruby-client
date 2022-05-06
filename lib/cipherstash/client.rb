@@ -1,7 +1,10 @@
 require "logger"
 
-require_relative "./client/rpc"
+require_relative "./access_key"
+require_relative "./client/console"
+require_relative "./client/hash_helper"
 require_relative "./client/profile"
+require_relative "./client/rpc"
 
 # Top-level module for all things CipherStash.
 module CipherStash
@@ -10,6 +13,8 @@ module CipherStash
   # This is the only thing you should ever need to explicitly instantiate in order to use CipherStash from Ruby.
   #
   class Client
+    include HashHelper
+
     # A known-unique value that we can use in argument lists to ensure that the value was not given by the user.
     class Unspecified; end
     private_constant :Unspecified
@@ -127,6 +132,53 @@ module CipherStash
       @rpc.create_collection(name, metadata, indexes)
 
       true
+    end
+
+    # Create a new access key for the workspace of this client.
+    #
+    # An access key is a secret, long-term credential which allows non-interactive
+    # CipherStash clients to access a CipherStash workspace.
+    #
+    # @param name [String] a unique name to associate with this access key.
+    #   Set it to something suitably descriptive, so you know which access key is which.
+    #
+    # @return [CipherStash::AccessKey] the newly-created access key.
+    #
+    # @raise [CipherStash::Client::Error::ConsoleAccessFailure] if the CipherStash Console, which issues and maintains access keys, could not be contacted.
+    #
+    def create_access_key(name)
+      AccessKey.new(symbolize_keys(console.create_access_key(name, @profile.workspace)))
+    end
+
+    # Get the list of currently-extant access keys for the workspace of this client.
+    #
+    # @return [Array<CipherStash::AccessKey>] details of all the access keys.
+    #
+    # @raise [CipherStash::Client::Error::ConsoleAccessFailure] if the CipherStash Console, which issues and maintains access keys, could not be contacted.
+    #
+    def access_keys
+      console.access_key_list(@profile.workspace).map { |ak| AccessKey.new(symbolize_keys(ak)) }
+    end
+
+    # Delete an access key from the workspace of this client.
+    #
+    # Deleting an access key prevents anyone who possesses the access key from being able to get a new (short-lived) access token.
+    # An existing access token may still allow access to the data-service for as long as that access token is still valid (up to 15 minutes).
+    #
+    # @return [Boolean] `true` if the access key was deleted, `false` if the access key did not exist.
+    #
+    # @raise [CipherStash::Client::Error::ConsoleAccessFailure] if the CipherStash Console, which issues and maintains access keys, could not be contacted.
+    #
+    def delete_access_key(name)
+      console.delete_access_key(name, @profile.workspace)
+    end
+
+    private
+
+    def console
+      @profile.with_access_token do |token|
+        Console.new(access_token: token[:access_token], logger: @logger)
+      end
     end
   end
 end
