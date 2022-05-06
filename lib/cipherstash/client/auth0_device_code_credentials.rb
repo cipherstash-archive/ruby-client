@@ -1,3 +1,4 @@
+require "launchy"
 require "net/http"
 
 module CipherStash
@@ -147,8 +148,10 @@ module CipherStash
       def prompt_user(polling_info)
         code = polling_info[:user_code]
 
+        Launchy.open polling_info[:verification_uri_complete]
+
         puts <<~EOF
-          Visit #{polling_info[:verification_uri_complete]} to complete authentication by following the below steps:
+          Visit \e[92m#{polling_info[:verification_uri_complete]}\e[0m to complete authentication by following the below steps:
 
           1. Verify that this code matches the code in your browser
 
