@@ -11,6 +11,7 @@ module CipherStash
       end
 
       def workspace_info(workspace_id)
+        @logger.debug("CipherStash::Client::Profile#workspace_info") { "GET /api/meta/workspaces/#{workspace_id}" }
         res = make_request(Net::HTTP::Get.new("/api/meta/workspaces/#{workspace_id}"))
 
         if res.code != "200"
@@ -27,7 +28,12 @@ module CipherStash
 
       def create_access_key(name, workspace_id)
         req = Net::HTTP::Post.new("/api/access-key")
-        req.body = { workspaceId: workspace_id, keyName: name }.to_json
+        req.body = {
+          workspaceId: workspace_id,
+          keyName: name,
+        }
+          .tap { |v| @logger.debug("CipherStash::Client::Profile#create_access_key") { "POST /api/access-key, #{v.inspect}" } }
+          .to_json
         req["Content-Type"] = "application/json"
         res = make_request(req)
 
@@ -48,6 +54,7 @@ module CipherStash
       end
 
       def access_key_list(workspace_id)
+        @logger.debug("CipherStash::Client::Profile#access_key_list") { "GET /api/access-keys/#{workspace_id}" }
         res = make_request(Net::HTTP::Get.new("/api/access-keys/#{workspace_id}"))
 
         if res.code != "200"
@@ -68,7 +75,12 @@ module CipherStash
 
       def delete_access_key(name, workspace_id)
         req = Net::HTTP::Delete.new("/api/access-key")
-        req.body = { workspaceId: workspace_id, keyName: name }.to_json
+        req.body = {
+          workspaceId: workspace_id,
+          keyName: name,
+        }
+          .tap { |v| @logger.debug("CipherStash::Client::Profile#delete_access_key") { "DELETE /api/access-key, #{v.inspect}" } }
+          .to_json
         req["Content-Type"] = "application/json"
         res = make_request(req)
 
