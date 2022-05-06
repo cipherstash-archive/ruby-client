@@ -39,18 +39,18 @@ module CipherStash
         blid = blob_from_uuid(uuid)
 
         field_name = @settings["mapping"]["field"]
-        base_term = record[field_name]
+        base_term = nested_lookup(record, field_name)
 
-        term = if @settings["mapping"]["fieldType"] == "string"
-                 orderise_string(base_term)
-               else
-                 [base_term]
-               end
-
-        if term.nil?
-          $stderr.puts "Did not find value for #{field_name.inspect} in #{record.inspect}"
+        if base_term.nil?
+          return nil
         else
-          { indexId: blob_from_uuid(@id), terms: [{ term: term.map { |t| ore_encrypt(t).to_s }, link: blid }] }
+          terms = if @settings["mapping"]["fieldType"] == "string"
+                    orderise_string(base_term)
+                  else
+                    [base_term]
+                  end
+
+          { indexId: blob_from_uuid(@id), terms: [{ term: terms.map { |t| ore_encrypt(t).to_s }, link: blid }] }
         end
       end
 

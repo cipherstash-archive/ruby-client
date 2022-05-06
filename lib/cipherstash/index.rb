@@ -127,5 +127,16 @@ module CipherStash
         end
       end
     end
+
+    def nested_lookup(record, path)
+      k, r = path.split(".", 2)
+      if r.nil?
+        record[k]
+      elsif record[k].is_a?(Hash)
+        nested_lookup(record[k], r)
+      else
+        nil
+      end
+    end
   end
 end

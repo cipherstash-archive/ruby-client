@@ -19,15 +19,14 @@ module CipherStash
         blid = blob_from_uuid(uuid)
 
         field_names = @settings["mapping"]["fields"]
-        raw_terms = field_names.map { |n| record[n] }
+        raw_terms = field_names.map { |n| nested_lookup(record, n) }.compact
 
-        if raw_terms.all?(&:nil?)
-          return nil
+        if raw_terms == []
+          nil
+        else
+          terms = raw_terms.map { |s| text_processor.perform(s) }.flatten
+          { indexId: blob_from_uuid(@id), terms: terms.map { |t| { term: [ore_encrypt(t).to_s], link: blid } } }
         end
-
-        terms = raw_terms.map { |s| text_processor.perform(s) }.flatten
-
-        { indexId: blob_from_uuid(@id), terms: terms.map { |t| { term: [ore_encrypt(t).to_s], link: blid } } }
       end
     end
   end

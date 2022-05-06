@@ -19,13 +19,12 @@ module CipherStash
         blid = blob_from_uuid(uuid)
         raw_terms = collect_string_fields(record).map(&:last)
 
-        if raw_terms.all?(&:nil?)
-          return nil
+        if raw_terms == []
+          nil
+        else
+          terms = raw_terms.map { |s| text_processor.perform(s) }.flatten
+          { indexId: blob_from_uuid(@id), terms: terms.map { |t| { term: [ore_encrypt(t).to_s], link: blid } } }
         end
-
-        terms = raw_terms.map { |s| text_processor.perform(s) }.flatten
-
-        { indexId: blob_from_uuid(@id), terms: terms.map { |t| { term: [ore_encrypt(t).to_s], link: blid } } }
       end
     end
   end
