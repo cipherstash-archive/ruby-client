@@ -22,7 +22,7 @@ module CipherStash
         if raw_terms == []
           nil
         else
-          terms = raw_terms.map { |s| text_processor.perform(s) }.flatten
+          terms = raw_terms.map { |s| text_processor.perform(s) }.flatten.uniq
           { indexId: blob_from_uuid(@id), terms: terms.map { |t| { term: [ore_encrypt(t).to_s], link: blid } } }
         end
       end
