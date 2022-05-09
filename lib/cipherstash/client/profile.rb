@@ -184,7 +184,7 @@ module CipherStash
               data["identityProvider"] = {
                 "kind" => "Auth0-DeviceCode",
                 "host" => "auth.cipherstash.com",
-                "clientId" => opt[:idpClientId],
+                "clientId" => opts[:idpClientId],
               }
             elsif opts.key?(:idpClientSecret)
               logger.debug("CipherStash::Profile.override_profile") { "Setting identityProvider.kind to Console-AccessKey because #{name_xlat.call(:idpClientSecret)} is set" }
