@@ -71,7 +71,7 @@ module CipherStash
     #
     def collection(name)
       @rpc.collection_info(name)
-    rescue GRPC::Core::StatusCodes => ex
+    rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Client#collection") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
       raise
     end
@@ -86,7 +86,7 @@ module CipherStash
     #
     def collections
       @rpc.collection_list
-    rescue GRPC::Core::StatusCodes => ex
+    rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Client#collections") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
       raise
     end
@@ -138,7 +138,7 @@ module CipherStash
       @rpc.create_collection(name, metadata, indexes)
 
       true
-    rescue GRPC::Core::StatusCodes => ex
+    rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Client#create_collection") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
       raise
     end
