@@ -137,13 +137,13 @@ describe CipherStash::Client::Profile do
       end
 
       it "prefers CS_AWS_ACCESS_KEY_ID" do
-        with_env("CS_AWS_ACCESS_KEY_ID" => "AKIABLERGH") do
+        with_env("CS_AWS_ACCESS_KEY_ID" => "AKIABLERGH", "CS_AWS_SECRET_ACCESS_KEY" => "bob") do
           expect(data["keyManagement"]["awsCredentials"]["accessKeyId"]).to eq("AKIABLERGH")
         end
       end
 
       it "prefers CS_AWS_SECRET_ACCESS_KEY" do
-        with_env("CS_AWS_SECRET_ACCESS_KEY" => "SECRETSECRETSECRET") do
+        with_env("CS_AWS_ACCESS_KEY_ID" => "fred", "CS_AWS_SECRET_ACCESS_KEY" => "SECRETSECRETSECRET") do
           expect(data["keyManagement"]["awsCredentials"]["secretAccessKey"]).to eq("SECRETSECRETSECRET")
         end
       end
