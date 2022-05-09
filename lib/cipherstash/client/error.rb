@@ -37,6 +37,9 @@ module CipherStash
       # An error occured while listing the collections in the workspace.
       class CollectionListFailure < RPCFailure; end
 
+      # An error occured while creating a collection.
+      class CollectionCreateFailure < RPCFailure; end
+
       # An error occured while deleting a collection.
       class CollectionDeleteFailure < RPCFailure; end
 
