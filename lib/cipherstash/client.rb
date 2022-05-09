@@ -71,6 +71,9 @@ module CipherStash
     #
     def collection(name)
       @rpc.collection_info(name)
+    rescue GRPC::Core::StatusCodes => ex
+      @logger.error("CipherStash::Client#collection") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
+      raise
     end
 
     # Load all collections in the data store.
@@ -83,6 +86,9 @@ module CipherStash
     #
     def collections
       @rpc.collection_list
+    rescue GRPC::Core::StatusCodes => ex
+      @logger.error("CipherStash::Client#collections") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
+      raise
     end
 
     # Create a new collection the data store.
@@ -132,6 +138,9 @@ module CipherStash
       @rpc.create_collection(name, metadata, indexes)
 
       true
+    rescue GRPC::Core::StatusCodes => ex
+      @logger.error("CipherStash::Client#create_collection") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
+      raise
     end
 
     # Create a new access key for the workspace of this client.

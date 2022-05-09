@@ -57,6 +57,9 @@ module CipherStash
       @rpc.put(self, uuid, store_record ? record : nil, vectors)
 
       uuid
+    rescue GRPC::Core::StatusCodes => ex
+      @logger.error("CipherStash::Collection#insert") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
+      raise
     end
 
     # Update-or-insert a record in the collection.
@@ -87,6 +90,9 @@ module CipherStash
       @rpc.put(self, id, store_record ? record : nil, vectors)
 
       true
+    rescue GRPC::Core::StatusCodes => ex
+      @logger.error("CipherStash::Collection#upsert") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
+      raise
     end
 
     # Retrieve one or more records from the collection.
@@ -109,6 +115,9 @@ module CipherStash
       else
         @rpc.get(self, id)
       end
+    rescue GRPC::Core::StatusCodes => ex
+      @logger.error("CipherStash::Collection#get") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
+      raise
     end
 
     # Delete a record from the collection.
@@ -123,6 +132,9 @@ module CipherStash
     #
     def delete(id)
       @rpc.delete(self, id)
+    rescue GRPC::Core::StatusCodes => ex
+      @logger.error("CipherStash::Collection#delete") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
+      raise
     end
 
     # Remove the collection from the data-service.
@@ -132,6 +144,9 @@ module CipherStash
     #
     def drop
       @rpc.delete_collection(self)
+    rescue GRPC::Core::StatusCodes => ex
+      @logger.error("CipherStash::Collection#drop") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
+      raise
     end
 
     # Search for records in the collection which match the constraints specified.
@@ -240,6 +255,9 @@ module CipherStash
     def query(opts = {}, &blk)
       q = Query.new(self, opts)
       @rpc.query(self, q.parse(&blk))
+    rescue GRPC::Core::StatusCodes => ex
+      @logger.error("CipherStash::Collection#query") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
+      raise
     end
 
     # Retrieve the index with the specified name
