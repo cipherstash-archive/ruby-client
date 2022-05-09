@@ -58,9 +58,9 @@ module CipherStash
         end
 
         decrypt_collection_info(res)
-      rescue GRPC::NotFound
+      rescue ::GRPC::NotFound
         raise Error::CollectionInfoFailure, "Collection '#{name}' not found"
-      rescue GRPC::BadStatus => ex
+      rescue ::GRPC::BadStatus => ex
         raise Error::CollectionInfoFailure, "Error while getting collection info for '#{name}': #{ex.message} (#{ex.class})"
       end
 
@@ -71,7 +71,7 @@ module CipherStash
         end
 
         res.collections.map { |c| decrypt_collection_info(c) }
-      rescue GRPC::BadStatus => ex
+      rescue ::GRPC::BadStatus => ex
         raise Error::CollectionListFailure, "Error while getting collection list: #{ex.message} (#{ex.class})"
       end
 
@@ -93,7 +93,7 @@ module CipherStash
         unless res.is_a?(Collections::InfoReply)
           raise Error::CollectionCreationFailure, "expected Collections::InfoReply response, got #{res.class} instead"
         end
-      rescue GRPC::BadStatus => ex
+      rescue ::GRPC::BadStatus => ex
         raise Error::CollectionCreateFailure, "Error while creating collection '#{name}': #{ex.message} (#{ex.class})"
       end
 
@@ -104,9 +104,9 @@ module CipherStash
         end
 
         true
-      rescue GRPC::NotFound
+      rescue ::GRPC::NotFound
         raise Error::CollectionDeleteFailure, "Collection '#{name}' not found"
-      rescue GRPC::BadStatus => ex
+      rescue ::GRPC::BadStatus => ex
         raise Error::CollectionDeleteFailure, "Error while deleting collection '#{name}': #{ex.message} (#{ex.class})"
       end
 
@@ -125,7 +125,7 @@ module CipherStash
         end
 
         uuid_from_blob(id)
-      rescue GRPC::NotFound
+      rescue ::GRPC::NotFound
         raise Error::RecordPutFailure, "Collection '#{collection.name}' not found"
       rescue GRPC::BadStatus => ex
         raise Error::RecordPutFailure, "Error while putting records into collection '#{collection.name}': #{ex.message} (#{ex.class})"
@@ -138,9 +138,9 @@ module CipherStash
         end
 
         decrypt_record(res.source)
-      rescue GRPC::NotFound
+      rescue ::GRPC::NotFound
         raise Error::RecordGetFailure, "Collection '#{collection.name}' not found"
-      rescue GRPC::BadStatus => ex
+      rescue ::GRPC::BadStatus => ex
         raise Error::RecordGetFailure, "Error while getting records from collection '#{collection.name}': #{ex.message} (#{ex.class})"
       end
 
@@ -151,9 +151,9 @@ module CipherStash
         end
 
         res.documents.map { |r| decrypt_record(r) }
-      rescue GRPC::NotFound
+      rescue ::GRPC::NotFound
         raise Error::RecordGetFailure, "Collection '#{collection.name}' not found"
-      rescue GRPC::BadStatus => ex
+      rescue ::GRPC::BadStatus => ex
         raise Error::RecordGetFailure, "Error while getting records from collection '#{collection.name}': #{ex.message} (#{ex.class})"
       end
 
@@ -164,9 +164,9 @@ module CipherStash
         end
 
         true
-      rescue GRPC::NotFound
+      rescue ::GRPC::NotFound
         raise Error::RecordDeleteFailure, "Collection '#{collection.name}' not found"
-      rescue GRPC::BadStatus => ex
+      rescue ::GRPC::BadStatus => ex
         raise Error::RecordDeleteFailure, "Error while deleting record from collection '#{collection.name}': #{ex.message} (#{ex.class})"
       end
 
@@ -178,9 +178,9 @@ module CipherStash
         end
 
         Collection::QueryResult.new(res.records.map { |r| decrypt_record(r) }, res.aggregates)
-      rescue GRPC::NotFound
+      rescue ::GRPC::NotFound
         raise Error::DocumentQueryFailure, "Collection '#{collection.name}' not found"
-      rescue GRPC::BadStatus => ex
+      rescue ::GRPC::BadStatus => ex
         raise Error::DocumentQueryFailure, "Error while querying collection '#{collection.name}': #{ex.message} (#{ex.class})"
       end
 
