@@ -127,7 +127,7 @@ module CipherStash
         uuid_from_blob(id)
       rescue ::GRPC::NotFound
         raise Error::RecordPutFailure, "Collection '#{collection.name}' not found"
-      rescue GRPC::BadStatus => ex
+      rescue ::GRPC::BadStatus => ex
         raise Error::RecordPutFailure, "Error while putting records into collection '#{collection.name}': #{ex.message} (#{ex.class})"
       end
 
