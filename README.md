@@ -2,19 +2,14 @@ This is a Ruby (with Rust backend) client for the [CipherStash encrypted, search
 
 > # !!! CURRENT STATUS !!!
 >
-> This client is currently extremely experimental and incomplete.
-> While we're happy for you to use it, please don't expect everything to work perfectly, nor for all features of other CipherStash clients to be available.
+> This client is currently in a "late-alpha" state.
+> While we're happy for you to use it, and most things work, there are a couple of things missing.
+> If something *not* on the list below is broken for you, please [report an issue](https://github.com/cipherstash/ruby-client/issues).
 >
-> At present, the following things should work:
+> At present, the following things are known to not be supported:
 >
-> * Creating a client
-> * Using environment variables to configure the client
-> * Using a profile to configure the client, as long as the cached access token is valid
-> * Federating to AWS to access KMS using an access token
-> * Loading collections created with stash-cli
-> * Inserting, upserting, and deleting data
-> * Retrieving data by ID that was written by StashRB
-> * Querying data written by StashRB
+> * Streaming put
+> * Interacting with collections or records created with StashJS
 
 
 # Installation
@@ -29,16 +24,6 @@ Those platforms are:
 
 
 ## Pre-requisites
-
-### gRPC
-
-The `grpc` gem, as packaged, is currently [broken for Darwin arm64 users](https://github.com/grpc/grpc/issues/28631).
-On this platform, you must manually install this gem from source before installing `cipherstash-client`.
-If you have XCode and friends installed, this should be as straightforward as:
-
-```
-gem install grpc --platform source
-```
 
 ### Rust
 
