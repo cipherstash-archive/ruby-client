@@ -40,6 +40,10 @@ module CipherStash
 
       private_constant :ENV_OPT_MAPPING, :OPT_ENV_MAPPING
 
+      def self.profile_options
+        @profile_options ||= OPT_ENV_MAPPING.keys.freeze
+      end
+
       def self.load(maybe_name, logger, **opts)
         maybe_profile_name = resolve_profile_name(maybe_name)
         profile_name = maybe_profile_name || "default"

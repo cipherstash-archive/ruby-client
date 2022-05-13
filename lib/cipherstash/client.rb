@@ -19,10 +19,22 @@ module CipherStash
     class Unspecified; end
     private_constant :Unspecified
 
+    # Enumerate the list of valid configuration options for a CipherStash client.
+    #
+    # This is mostly of use to libraries that "wrap" CipherStash::Client (such as `active_stash`), so they can more smoothly handle all configuration parameters without needing to hard-code big long lists.
+    #
+    # @return [Array<Symbol>] the list of valid profile configuration options.
+    #   The option names are in the "canonical" name format, as listed in [the Client Configuration reference](https://docs.cipherstash.com/reference/client-configuration.html), such as `:idpClientSecret`.
+    #
+    def self.client_options
+      Profile.profile_options
+    end
+
     # Create a new CipherStash client.
     #
     # No options are necessary in the common case.
     # The default profile will be loaded from `~/.cipherstash`, modified by any `CS_*` environment variables may be set.
+    # Options passed to this constructor directly will further override profile values or environment variables.
     #
     # @see https://docs.cipherstash.com/reference/client-configuration.html Client Configuration reference documentation
     #
@@ -38,24 +50,36 @@ module CipherStash
     # @example Load specified profile by name
     #   # This loads the given profile, but options will
     #   # still be overridden by env vars, if present
-    #   cs = CipherStash::Client.new(profileName: "ruby-client-profile"
+    #   cs = CipherStash::Client.new(profileName: "ruby-client-profile")
+    #
+    # @example Load a profile and set a different access key
+    #   cs = CipherStash::Client.new(profileName: "example", idpClientSecret: "CSAKSOMETHING.SOMETHING")
     #
     # @option profileName [String] load a specific profile, rather than letting the default client configuration process select a profile for you.
-    #   Note that the profile you specify can still have its settings overridden by any relevant environment variables.
+    #   Note that the profile you specify can still have its settings overridden by any relevant environment variables or configuration options passed to the client.
     #
     # @option logger [Logger] specify a custom logger.
     #   If not provided, only warnings and errors will be printed to `stderr`.
     #
-    # @raise [CipherStash::Client::Error::LoadProfileFailure] if the profile could not be loaded, or was considered invalid for some reason.
+    # @option opts [Hash<Symbol, String | Integer | Boolean>] additional configuration options for the client, which override the values of the corresponding configuration items in the loaded profile, or environment variables.
+    #   For the full list of supported option names, see [the Client Configuration reference](https://docs.cipherstash.com/reference/client-configuration.html).
     #
-    def initialize(profileName: Unspecified, logger: Unspecified)
+    # @raise [CipherStash::Client::Error::LoadProfileFailure] if the profile could not be loaded for some reason.
+    #
+    # @raise [CipherStash::Client::Error::InvalidProfileError] if the profile, after being overridden by environment variables and constructor options, was not valid.
+    #
+    def initialize(profileName: Unspecified, logger: Unspecified, **opts)
       @logger = if logger == Unspecified
                   Logger.new($stderr).tap { |l| l.level = Logger::WARN; l.formatter = ->(_, _, _, m) { "#{m}\n" } }
                 else
                   logger
                 end
 
-      @profile = Profile.load(profileName == Unspecified ? nil : profileName, @logger)
+      if (leftovers = opts.keys - Client.client_options) != []
+        raise Error::InvalidProfileError, "Unsupported configuration option(s) found: #{leftovers.inspect}"
+      end
+
+      @profile = Profile.load(profileName == Unspecified ? nil : profileName, @logger, opts)
       @rpc = RPC.new(@profile, @logger)
     end
 
