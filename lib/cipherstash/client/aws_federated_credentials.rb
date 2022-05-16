@@ -31,7 +31,7 @@ module CipherStash
 
       def expired?
         @logger.debug("AwsFederatedCredentials#expired?") { "Expiry check; @expires_at=#{@expires_at.inspect}" }
-        @expires_at.nil? || (Time.now + EXPIRY_GRACE_PERIOD_SECONDS > @expires_at)
+        @expires_at.nil? || (Time.now.utc + EXPIRY_GRACE_PERIOD_SECONDS > @expires_at)
       end
 
       private
