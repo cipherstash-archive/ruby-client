@@ -1,9 +1,10 @@
-require "aws-sdk-core/credentials"
+require "aws-sdk-core"
 require "json"
 require "net/http"
 
 require_relative "./error"
 require_relative "./auth0_device_code_credentials"
+require_relative "./aws_federated_credentials"
 require_relative "./console_access_key_credentials"
 require_relative "./console"
 require_relative "./creds_proxy"
@@ -502,22 +503,7 @@ module CipherStash
 
       def aws_federated_credentials(roleArn:, region:)
         @logger.debug("CipherStash::Profile") { "Federating to #{@data["keyManagement"]["awsCredentials"]["roleArn"].inspect} for AWS credentials" }
-        Aws::AssumeRoleWebIdentityCredentials.new(
-          role_arn: @data["keyManagement"]["awsCredentials"]["roleArn"],
-          role_session_name: "StashRB",
-          web_identity_token_file: file_path("auth-token.jwt"),
-          client: Aws::STS::Client.new(region: region),
-          before_refresh: ->(_) {
-            File.write(file_path("auth-token.jwt"), with_access_token[:access_token], perm: 0600)
-            @logger.debug("CipherStash::Profile#aws_federated_credentials") { "Wrote a fresh(ish) token to #{file_path("auth-token.jwt")}" }
-          }
-        ).tap do |creds|
-          class << creds
-            def expired?
-              near_expiration?(SYNC_EXPIRATION_LENGTH)
-            end
-          end
-        end
+        AwsFederatedCredentials.new(self, roleArn, region, @logger)
       end
 
       def aws_explicit_credentials(accessKeyId:, secretAccessKey:, sessionToken: nil, region:)
