@@ -54,6 +54,7 @@ module CipherStash
           profile_data = JSON.parse(File.read(file_path(profile_name, "profile-config.json")))
         rescue Errno::ENOENT
           if maybe_profile_name.nil?
+            logger.debug("CipherStash::Profile.load") { "~/.cipherstash/default/profile-config.json does not exist; going with built-in defaults" }
             default_profile
           else
             raise Error::LoadProfileFailure, "Profile '#{profile_name}' does not exist"
@@ -204,18 +205,20 @@ module CipherStash
           data["keyManagement"] ||= {}
 
           if opts.key?(:kmsKeyArn)
+            logger.debug("CipherStash::Profile.override_profile") { "Setting keyManagment.kind to AWS-KMS because #{name_xlat.call(:kmsKeyArn)} is set" }
             data["keyManagement"]["kind"] = "AWS-KMS"
             data["keyManagement"]["key"] ||= {}
             data["keyManagement"]["key"]["arn"] = opts[:kmsKeyArn]
 
             unless data["keyManagement"].key?("awsCredentials")
+              logger.debug("CipherStash::Profile.override_profile") { "Configuring federated keyManagement.awsCredentials based on #{name_xlat.call(:kmsKeyArn)}" }
               keybits = opts[:kmsKeyArn].split(":")
 
               data["keyManagement"]["awsCredentials"] = {
                 "kind"    => "Federated",
                 "region"  => keybits[3],
                 "roleArn" => "arn:aws:iam::#{keybits[4]}:role/cs-federated-cmk-access",
-              }
+              }.tap { |v| logger.debug("CipherStash::Profile.override_profile") { "Default keyManagement.awsCredentials: #{v.inspect}" } }
             end
           end
 
@@ -307,6 +310,8 @@ module CipherStash
       # sources, such as the environment.
       def initialize(name, data, logger)
         @name, @data, @logger = name, data, logger
+
+        @logger.debug("CipherStash::Client::Profile.new") { "Creating profile named #{name.inspect} from #{data.inspect}" }
       end
 
       # The name of the profile.
