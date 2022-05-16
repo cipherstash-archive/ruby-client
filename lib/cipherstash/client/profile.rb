@@ -201,6 +201,23 @@ module CipherStash
           end
 
           data["keyManagement"] ||= {}
+
+          if opts.key?(:kmsKeyArn)
+            data["keyManagement"]["kind"] = "AWS-KMS"
+            data["keyManagement"]["key"] ||= {}
+            data["keyManagement"]["key"]["arn"] = opts[:kmsKeyArn]
+
+            unless data["keyManagement"].key?("awsCredentials")
+              keybits = opts[:kmsKeyArn].split(":")
+
+              data["keyManagement"]["awsCredentials"] = {
+                "kind"    => "Federated",
+                "region"  => keybits[3],
+                "roleArn" => "arn:aws:iam::#{keybits[4]}:role/cs-federated-cmk-access",
+              }
+            end
+          end
+
           data["keyManagement"]["awsCredentials"] ||= {}
           if opts.key?(:kmsFederationRoleArn)
             %i{awsAccessKeyId awsSecretAccessKey awsSessionToken}.each do |k|
@@ -239,7 +256,6 @@ module CipherStash
             :serviceFqdn        => "service.host",
             :serviceTrustAnchor => "service.trustAnchor",
             :idpHost            => "identityProvider.host",
-            :kmsKeyArn          => "keyManagement.key.arn",
             :kmsKeyRegion       => "keyManagement.key.region",
             :namingKey          => "keyManagement.key.namingKey",
             :awsRegion          => "keyManagement.awsCredentials.region",
