@@ -63,7 +63,7 @@ module CipherStash
           raise Error::LoadProfileFailure, "Profile '#{profile_name}' has an invalid profile-config.json: #{ex.message}"
         end
 
-        profile_data = override_via_environment(override_via_options(profile_data, opts, logger), logger)
+        profile_data = override_via_options(override_via_environment(profile_data, logger), opts, logger)
 
         Profile.new(profile_name, profile_data, logger)
       end
@@ -202,10 +202,9 @@ module CipherStash
             end
           end
 
-          data["keyManagement"] ||= {}
-
           if opts.key?(:kmsKeyArn)
             logger.debug("CipherStash::Profile.override_profile") { "Setting keyManagment.kind to AWS-KMS because #{name_xlat.call(:kmsKeyArn)} is set" }
+            data["keyManagement"] ||= {}
             data["keyManagement"]["kind"] = "AWS-KMS"
             data["keyManagement"]["key"] ||= {}
             data["keyManagement"]["key"]["arn"] = opts[:kmsKeyArn]
@@ -222,8 +221,9 @@ module CipherStash
             end
           end
 
-          data["keyManagement"]["awsCredentials"] ||= {}
           if opts.key?(:kmsFederationRoleArn)
+            data["keyManagement"] ||= {}
+            data["keyManagement"]["awsCredentials"] ||= {}
             %i{awsAccessKeyId awsSecretAccessKey awsSessionToken}.each do |k|
               if opts.key?(k)
                 raise Error::InvalidProfileError, "Cannot set both #{name_xlat.call(k)} and #{name_xlat.call(:kmsFederationRoleArn)}"
@@ -235,6 +235,8 @@ module CipherStash
             data["keyManagement"]["awsCredentials"]["kind"] = "Federated"
             data["keyManagement"]["awsCredentials"]["roleArn"] = opts[:kmsFederationRoleArn]
           elsif opts.key?(:awsAccessKeyId)
+            data["keyManagement"] ||= {}
+            data["keyManagement"]["awsCredentials"] ||= {}
             unless opts.key?(:awsSecretAccessKey)
               raise Error::InvalidProfileError, "Must set #{name_xlat.call(:awsSecretAccessKey)} when setting #{name_xlat.call(:awsAccessKeyId)}"
             end
@@ -246,7 +248,7 @@ module CipherStash
             data["keyManagement"]["awsCredentials"]["secretAccessKey"] = opts[:awsSecretAccessKey]
             data["keyManagement"]["awsCredentials"]["sessionToken"] = opts[:awsSessionToken] if opts.key?(:awsSessionToken)
           else
-            %i{:awsSecretAccessKey :awsSessionToken}.each do |k|
+            %i{awsSecretAccessKey awsSessionToken}.each do |k|
               if opts.key?(k)
                 raise Error::InvalidProfileError, "Cannot set #{name_xlat.call(k)} unless #{name_xlat.call(:awsAccessKeyId)} is set"
               end
