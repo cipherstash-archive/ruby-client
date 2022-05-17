@@ -354,13 +354,13 @@ module CipherStash
       # @see #with_kms_credentials because it has a more in-depth explanation of what's going on and why.
       #
       def with_access_token(&blk)
-        creds_provider = access_token_provider(**symbolize_keys(identity_provider_config))
+        @access_token_creds_provider ||= access_token_provider(**symbolize_keys(identity_provider_config))
 
         if blk.nil?
-          creds_provider.fresh_credentials
+          @access_token_creds_provider.fresh_credentials
         else
-          CredsProxy.new(creds_provider) do
-            blk.call(creds_provider.fresh_credentials)
+          CredsProxy.new(@access_token_creds_provider) do
+            blk.call(@access_token_creds_provider.fresh_credentials)
           end
         end
       end
@@ -390,11 +390,11 @@ module CipherStash
       # need to be rotated.
       #
       def with_kms_credentials(&blk)
-        region = kms_key_arn.split(":")[3]
-        creds_provider = aws_credentials_provider(**symbolize_keys(@data["keyManagement"]["awsCredentials"]))
+        @kms_creds_provider ||= aws_credentials_provider(**symbolize_keys(@data["keyManagement"]["awsCredentials"]))
 
-        CredsProxy.new(creds_provider) do
-          blk.call({ region: region, credentials: creds_provider.credentials })
+        region = kms_key_arn.split(":")[3]
+        CredsProxy.new(@kms_creds_provider) do
+          blk.call({ region: region, credentials: @kms_creds_provider.credentials })
         end
       end
 
