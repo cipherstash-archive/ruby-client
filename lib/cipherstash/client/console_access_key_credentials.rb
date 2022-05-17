@@ -13,7 +13,9 @@ module CipherStash
       end
 
       def fresh_credentials
-        acquire_new_token
+        if expired?
+          acquire_new_token
+        end
 
         return { access_token: @cached_token["accessToken"] }
       end
