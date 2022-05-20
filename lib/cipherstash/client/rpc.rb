@@ -105,9 +105,9 @@ module CipherStash
 
         true
       rescue ::GRPC::NotFound
-        raise Error::CollectionDeleteFailure, "Collection '#{name}' not found"
+        raise Error::CollectionDeleteFailure, "Collection '#{collection.name}' not found"
       rescue ::GRPC::BadStatus => ex
-        raise Error::CollectionDeleteFailure, "Error while deleting collection '#{name}': #{ex.message} (#{ex.class})"
+        raise Error::CollectionDeleteFailure, "Error while deleting collection '#{collection.name}': #{ex.message} (#{ex.class})"
       end
 
       def put(collection, id, record, vectors)
