@@ -28,7 +28,7 @@ Gem::Specification.new do |s|
   s.metadata["bug_tracker_uri"] = "https://github.com/cipherstash/ruby-client/issues"
   s.metadata["documentation_uri"] = "https://rubydoc.info/gems/cipherstash-client"
   s.metadata["mailing_list_uri"] = "https://discuss.cipherstash.com"
-  s.metadata["funding_uri"] = "https://cipherstash.com/signup"
+  s.metadata["funding_uri"] = "https://cipherstash.com/pricing"
 
   s.add_runtime_dependency "aws-sdk-core", "~> 3.0"
   s.add_runtime_dependency "aws-sdk-kms", "~> 1.0"
