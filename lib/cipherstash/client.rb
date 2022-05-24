@@ -79,7 +79,7 @@ module CipherStash
         raise Error::InvalidProfileError, "Unsupported configuration option(s) found: #{leftovers.inspect}"
       end
 
-      @profile = Profile.load(profileName == Unspecified ? nil : profileName, @logger, opts)
+      @profile = Profile.load(profileName == Unspecified ? nil : profileName, @logger, **opts)
       @rpc = RPC.new(@profile, @logger)
     end
 
