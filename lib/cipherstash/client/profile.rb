@@ -450,6 +450,20 @@ module CipherStash
         end
       end
 
+      # Create a new (encrypted) naming key from the profile's wrapping key.
+      #
+      # This method is not intended for regular use; typically, a single naming
+      # key is generated when the workspace is first initialized, and then is
+      # not changed thereafter.
+      def generate_naming_key
+        [with_kms_credentials do |creds|
+          Aws::KMS::Client.new(**creds)
+        end.generate_data_key(
+          number_of_bytes: 16,
+          key_id: kms_key_arn
+        ).ciphertext_blob].pack("m0")
+      end
+
       private
 
       def access_token_provider(kind:, **opts)

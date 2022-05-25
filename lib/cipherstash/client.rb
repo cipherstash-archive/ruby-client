@@ -206,6 +206,18 @@ module CipherStash
       console.delete_access_key(name, @profile.workspace)
     end
 
+    # Generate an (encrypted) "naming key" from the wrapping key configured for this client.
+    #
+    # The naming key is used to deterministically obscure the actual name of the collections in a workspace.
+    # It ensures that the client can ask for a collection "by name", while not disclosing that name to the server.
+    # A naming key should typically be configured once when a workspace is first created, and then not changed thereafter.
+    # This method is only necessary when configuring a workspace that doesn't use CipherStash-generated keys.
+    #
+    # @return [String]
+    def generate_naming_key
+      @profile.generate_naming_key
+    end
+
     private
 
     def console
