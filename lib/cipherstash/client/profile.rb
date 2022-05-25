@@ -414,7 +414,7 @@ module CipherStash
       end
 
       def using_kms_federation?
-        @data["keyManagement"]["awsCredentials"]["kind"] == "Federated"
+        @data["keyManagement"]["awsCredentials"]["kind"] rescue nil == "Federated"
       end
 
       def cipher_engine
