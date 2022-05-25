@@ -189,9 +189,7 @@ module CipherStash
       end
 
       def rpc_headers
-        @profile.with_access_token do |creds|
-          { authorization: "Bearer #{creds[:access_token]}" }
-        end
+        { authorization: "Bearer #{@profile.with_access_token[:access_token]}" }
       end
 
       def decrypt_collection_info(info)
