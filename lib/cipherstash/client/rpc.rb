@@ -39,16 +39,6 @@ module CipherStash
         @profile, @logger = profile, logger
 
         @logger.debug("CipherStash::Client::RPC") { "Connecting to data-service at '#{@profile.service_host}:#{@profile.service_port}'" }
-
-        @cipher_engine = @profile.with_kms_credentials do |creds|
-          Enveloperb::AWSKMS.new(
-            @profile.kms_key_arn,
-            aws_access_key_id: creds[:credentials].access_key_id,
-            aws_secret_access_key: creds[:credentials].secret_access_key,
-            aws_session_token: creds[:credentials].session_token,
-            aws_region: creds[:region]
-          )
-        end
       end
 
       def collection_info(name)
@@ -213,7 +203,7 @@ module CipherStash
           self,
           uuid_from_blob(info.id),
           info.ref,
-          metadata = CBOR.decode(@cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(info.metadata))),
+          metadata = CBOR.decode(cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(info.metadata))),
           info.indexes.map { |i| decrypt_index(i) }
         )
       end
@@ -225,7 +215,7 @@ module CipherStash
 
         Index.generate(
           uuid_from_blob(idx.id),
-          CBOR.decode(@cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(idx.settings)))
+          CBOR.decode(cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(idx.settings)))
         )
       end
 
@@ -236,7 +226,7 @@ module CipherStash
 
         Record.new(
           uuid_from_blob(r.id),
-          r.source == "" ? nil : CBOR.unpack(@cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(r.source)))
+          r.source == "" ? nil : CBOR.unpack(cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(r.source)))
         )
       end
 
@@ -249,7 +239,11 @@ module CipherStash
       end
 
       def encrypt_blob(blob)
-        @cipher_engine.encrypt(blob).to_s
+        cipher_engine.encrypt(blob).to_s
+      end
+
+      def cipher_engine
+        @cipher_engine ||= @profile.cipher_engine
       end
     end
 
