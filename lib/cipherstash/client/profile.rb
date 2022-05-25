@@ -1,6 +1,7 @@
 require "aws-sdk-core"
 require "json"
 require "net/http"
+require "securerandom"
 
 require_relative "./error"
 require_relative "./auth0_device_code_credentials"
@@ -30,6 +31,7 @@ module CipherStash
         "CS_ACCESS_TOKEN"            => :accessToken,
         "CS_KMS_KEY_ARN"             => :kmsKeyArn,
         "CS_KMS_KEY_REGION"          => :kmsKeyRegion,
+        "CS_LOCAL_KEY"               => :localKey,
         "CS_NAMING_KEY"              => :namingKey,
         "CS_KMS_FEDERATION_ROLE_ARN" => :kmsFederationRoleArn,
         "CS_AWS_ACCESS_KEY_ID"       => :awsAccessKeyId,
@@ -202,7 +204,20 @@ module CipherStash
             end
           end
 
-          if opts.key?(:kmsKeyArn)
+          if opts.key?(:localKey)
+            %i{kmsKeyArn kmsKeyRegion kmsFederationRoleArn awsAccessKeyId awsSecretAccessKey awsSessionToken awsRegion}.each do |k|
+              if opts.key?(k)
+                raise Error::InvalidProfileError, "Cannot set both #{name_xlat.call(k)} and #{name_xlat.call(:localKey)}"
+              end
+            end
+
+            logger.debug("CipherStash::Profile.override_profile") { "Setting keyManagement.kind to Static because #{name_xlat.call(:localKey)} is set" }
+            data["keyManagement"] ||= {}
+            data["keyManagement"]["kind"] = "Static"
+            data["keyManagement"]["key"] ||= {}
+            data["keyManagement"]["key"]["key"] = opts[:localKey]
+            data["keyManagement"].delete("awsCredentials")
+          elsif opts.key?(:kmsKeyArn)
             logger.debug("CipherStash::Profile.override_profile") { "Setting keyManagment.kind to AWS-KMS because #{name_xlat.call(:kmsKeyArn)} is set" }
             data["keyManagement"] ||= {}
             data["keyManagement"]["kind"] = "AWS-KMS"
@@ -402,6 +417,25 @@ module CipherStash
         @data["keyManagement"]["awsCredentials"]["kind"] == "Federated"
       end
 
+      def cipher_engine
+        case @data["keyManagement"]["kind"]
+        when "AWS-KMS"
+          with_kms_credentials do |creds|
+            Enveloperb::AWSKMS.new(
+              kms_key_arn,
+              aws_access_key_id: creds[:credentials].access_key_id,
+              aws_secret_access_key: creds[:credentials].secret_access_key,
+              aws_session_token: creds[:credentials].session_token,
+              aws_region: creds[:region]
+            )
+          end
+        when "Static"
+          Enveloperb::Simple.new([@data["keyManagement"]["key"]["key"]].pack("H*"))
+        else
+          raise Error::InvalidProfileError, "Unrecognised value for keyManagement.kind: #{@data["keyManagement"]["kind"].inspect}"
+        end
+      end
+
       # The KMS key ARN for this profile.
       def kms_key_arn
         @data["keyManagement"]["key"]["arn"]
@@ -456,12 +490,19 @@ module CipherStash
       # key is generated when the workspace is first initialized, and then is
       # not changed thereafter.
       def generate_naming_key
-        [with_kms_credentials do |creds|
-          Aws::KMS::Client.new(**creds)
-        end.generate_data_key(
-          number_of_bytes: 16,
-          key_id: kms_key_arn
-        ).ciphertext_blob].pack("m0")
+        case @data["keyManagement"]["kind"]
+        when "AWS-KMS"
+          [with_kms_credentials do |creds|
+            Aws::KMS::Client.new(**creds)
+          end.generate_data_key(
+            number_of_bytes: 32,
+            key_id: kms_key_arn
+          ).ciphertext_blob].pack("m0")
+        when "Static"
+          [cipher_engine.encrypt(SecureRandom.bytes(32)).to_s].pack("m0")
+        else
+          raise Error::InvalidProfileError, "Unrecognised value for keyManagement.kind: #{@data["keyManagement"]["kind"].inspect}"
+        end
       end
 
       private
@@ -544,10 +585,17 @@ module CipherStash
       # The plaintext naming key for this profile.
       def naming_key
         @naming_key ||= begin
-                          encrypted_naming_key = @data["keyManagement"]["key"]["namingKey"].unpack("m").first
-                          with_kms_credentials do |creds|
-                            Aws::KMS::Client.new(**creds)
-                          end.decrypt(ciphertext_blob: encrypted_naming_key).plaintext
+                          case @data["keyManagement"]["kind"]
+                          when "AWS-KMS"
+                            encrypted_naming_key = @data["keyManagement"]["key"]["namingKey"].unpack("m").first
+                            with_kms_credentials do |creds|
+                              Aws::KMS::Client.new(**creds)
+                            end.decrypt(ciphertext_blob: encrypted_naming_key).plaintext
+                          when "Static"
+                            cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(@data["keyManagement"]["key"]["namingKey"].unpack("m").first))
+                          else
+                            raise Error::InvalidProfileError, "Unrecognised value for keyManagement.kind: #{@data["keyManagement"]["kind"].inspect}"
+                          end
                         end
       end
     end
