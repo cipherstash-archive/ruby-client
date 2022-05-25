@@ -133,10 +133,10 @@ module CipherStash
     def create_collection(name, schema)
       metadata = {
         name: name,
-        recordType: schema["type"],
+        recordType: schema.fetch("type", {}),
       }
 
-      indexes = schema["indexes"].map do |idx_name, idx_settings|
+      indexes = schema.fetch("indexes", {}).map do |idx_name, idx_settings|
         {
           meta: {
             "$indexId" => SecureRandom.uuid,
