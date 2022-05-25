@@ -197,12 +197,26 @@ module CipherStash
           raise Error::DecryptionFailure, "expected Collections::InfoReply, got #{info.class} instead"
         end
 
+        metadata = begin
+                     CBOR.decode(cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(info.metadata)))
+                   rescue => ex
+                     @logger.warn("CipherStash::Client::RPC#decrypt_collection_info") { "Failed to decrypt collection metadata: #{ex.message} (#{ex.class})" }
+                     {}
+                   end
+
         Collection.new(
           self,
           uuid_from_blob(info.id),
           info.ref,
-          metadata = CBOR.decode(cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(info.metadata))),
-          info.indexes.map { |i| decrypt_index(i) }
+          metadata,
+          info.indexes.map do |idx|
+            begin
+              decrypt_index(idx)
+            rescue => ex
+              @logger.warn("CipherStash::Client::RPC#decrypt_collection_info") { "Failed to decrypt index #{uuid_from_blob(idx.id)}: #{ex.message} (#{ex.class})" }
+              nil
+            end
+          end
         )
       end
 
