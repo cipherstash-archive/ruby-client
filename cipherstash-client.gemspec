@@ -16,11 +16,19 @@ Gem::Specification.new do |s|
 
   s.authors  = ["Matt Palmer", "Dan Draper"]
   s.email    = ["matt@cipherstash.com"]
-  s.homepage = "http://github.com/cipherstash/ruby-client"
+  s.homepage = "https://cipherstash.com"
 
   s.files = `git ls-files -z`.split("\0").reject { |f| f =~ /^(G|spec|Rakefile)/ }
 
   s.required_ruby_version = ">= 2.7.0"
+
+  s.metadata["homepage_uri"] = s.homepage
+  s.metadata["source_code_uri"] = "https://github.com/cipherstash/ruby-client"
+  s.metadata["changelog_uri"] = "https://github.com/cipherstash/ruby-client/releases"
+  s.metadata["bug_tracker_uri"] = "https://github.com/cipherstash/ruby-client/issues"
+  s.metadata["documentation_uri"] = "https://rubydoc.info/gems/cipherstash-client"
+  s.metadata["mailing_list_uri"] = "https://discuss.cipherstash.com"
+  s.metadata["funding_uri"] = "https://cipherstash.com/pricing"
 
   s.add_runtime_dependency "aws-sdk-core", "~> 3.0"
   s.add_runtime_dependency "aws-sdk-kms", "~> 1.0"
