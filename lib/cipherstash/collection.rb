@@ -51,10 +51,14 @@ module CipherStash
     # @raise [CipherStash::Client::Error::RPCFailure] if a low-level communication problem with the server caused the insert to fail.
     #
     def insert(record, store_record: true)
+      unless store_record
+        @logger.debug("CipherStash::Collection#insert") { "DEPRECATION NOTICE: 'store_record: false' is no longer supported; please stop using it" }
+      end
+
       uuid = SecureRandom.uuid
 
       vectors = @indexes.map { |idx| idx.analyze(uuid, record) }.compact
-      @rpc.put(self, uuid, store_record ? record : nil, vectors)
+      @rpc.put(self, uuid, record, vectors)
 
       uuid
     rescue ::GRPC::Core::StatusCodes => ex
