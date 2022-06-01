@@ -52,8 +52,12 @@ module CipherStash
         profile_name = maybe_profile_name || "default"
 
         profile_data = begin
-          logger.debug("CipherStash::Profile.load") { "Reading data for profile '#{profile_name}' from ~/.cipherstash/#{profile_name}/profile-config.json" }
-          profile_data = JSON.parse(File.read(file_path(profile_name, "profile-config.json")))
+          if ENV["CS_SKIP_PROFILE_LOAD"]
+            default_profile
+          else
+            logger.debug("CipherStash::Profile.load") { "Reading data for profile '#{profile_name}' from ~/.cipherstash/#{profile_name}/profile-config.json" }
+            profile_data = JSON.parse(File.read(file_path(profile_name, "profile-config.json")))
+          end
         rescue Errno::ENOENT
           if maybe_profile_name.nil?
             logger.debug("CipherStash::Profile.load") { "~/.cipherstash/default/profile-config.json does not exist; going with built-in defaults" }
