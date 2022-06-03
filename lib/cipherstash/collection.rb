@@ -1,3 +1,4 @@
+require "logger"
 require "securerandom"
 
 require_relative "./collection/query"
@@ -24,8 +25,9 @@ module CipherStash
     # Create a new collection from its retrieved metadata.
     #
     # @private
-    def initialize(rpc, id, ref, metadata, indexes)
+    def initialize(rpc, id, ref, metadata, indexes, logger: nil)
       @rpc, @id, @ref, @metadata, @indexes = rpc, id, ref, metadata, indexes
+      @logger = logger || Logger.new("/dev/null")
     end
 
     # The plaintext name of the collection.
