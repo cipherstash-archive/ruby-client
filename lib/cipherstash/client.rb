@@ -146,7 +146,7 @@ module CipherStash
           },
           mapping: idx_settings.merge(
             {
-              fieldType: case idx_settings["kind"]
+              "fieldType" => case idx_settings["kind"]
               when "exact", "range"
                 schema["type"][idx_settings["field"]]
               when "match", "dynamic-match", "field-dynamic-match"
