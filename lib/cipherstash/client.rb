@@ -159,7 +159,15 @@ module CipherStash
         }
       end
 
-      @rpc.create_collection(name, metadata, indexes)
+      begin
+        @rpc.create_collection(name, metadata, indexes)
+      rescue CipherStash::Client::Error::CollectionCreateFailure => ex
+        if ::GRPC::AlreadyExists === ex.cause
+          migrate_collection(name, metadata, indexes)
+        else
+          raise
+        end
+      end
 
       true
     rescue ::GRPC::Core::StatusCodes => ex
@@ -224,6 +232,20 @@ module CipherStash
       @profile.with_access_token do |token|
         Console.new(access_token: token[:access_token], logger: @logger)
       end
+    end
+
+    def migrate_collection(name, new_metadata, new_indexes)
+      current_collection = collection(name)
+
+      current_collection.indexes.each do |cur_idx|
+        new_indexes.each do |new_idx|
+          if cur_idx === new_idx
+            new_idx[:meta] = cur_idx.meta_settings
+          end
+        end
+      end
+
+      @rpc.migrate_collection(name, new_metadata, new_indexes, current_collection.current_schema_version)
     end
   end
 end

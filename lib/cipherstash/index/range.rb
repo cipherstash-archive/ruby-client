@@ -7,27 +7,27 @@ module CipherStash
       INDEX_OPS = {
         "eq" => -> (idx, t) do
           et = idx.ore_encrypt(t)
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), range: { lower: [et.to_s], upper: [et.to_s] } }]
+          [{ indexId: idx.binid, range: { lower: [et.to_s], upper: [et.to_s] } }]
         end,
         "lt" => -> (idx, t) do
           et = idx.ore_encrypt(..t-1)
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), range: { lower: [et.first.to_s], upper: [et.last.to_s] } }]
+          [{ indexId: idx.binid, range: { lower: [et.first.to_s], upper: [et.last.to_s] } }]
         end,
         "lte" => -> (idx, t) do
           et = idx.ore_encrypt(..t)
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), range: { lower: [et.first.to_s], upper: [et.last.to_s] } }]
+          [{ indexId: idx.binid, range: { lower: [et.first.to_s], upper: [et.last.to_s] } }]
         end,
         "gt" => -> (idx, t) do
           et = idx.ore_encrypt(t+1..)
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), range: { lower: [et.first.to_s], upper: [et.last.to_s] } }]
+          [{ indexId: idx.binid, range: { lower: [et.first.to_s], upper: [et.last.to_s] } }]
         end,
         "gte" => -> (idx, t) do
           et = idx.ore_encrypt(t..)
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), range: { lower: [et.first.to_s], upper: [et.last.to_s] } }]
+          [{ indexId: idx.binid, range: { lower: [et.first.to_s], upper: [et.last.to_s] } }]
         end,
         "between" => -> (idx, min, max) do
           et = idx.ore_encrypt(min..max)
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), range: { lower: [et.first.to_s], upper: [et.last.to_s] } }]
+          [{ indexId: idx.binid, range: { lower: [et.first.to_s], upper: [et.last.to_s] } }]
         end,
       }
 
@@ -50,7 +50,7 @@ module CipherStash
                     [base_term]
                   end
 
-          { indexId: blob_from_uuid(@id), terms: [{ term: terms.map { |t| ore_encrypt(t).to_s }, link: blid }] }
+          { indexId: binid, terms: [{ term: terms.map { |t| ore_encrypt(t).to_s }, link: blid }] }
         end
       end
 

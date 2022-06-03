@@ -2,6 +2,12 @@ module CipherStash
   class Client
     # The base class for all exceptions raised by `CipherStash::Client`.
     class Error < StandardError
+      # Something went wrong that indicates a bug in CipherStash::Client.
+      #
+      # Reporting this exception as an issue is strongly encouraged.
+      # Please include the full error message, stacktrace, and the code that caused it, please.
+      class InternalError < Error; end
+
       # An error occurred while attempting to load a profile.
       #
       # The exception message will describe the exact problem.
@@ -40,6 +46,9 @@ module CipherStash
       # An error occured while creating a collection.
       class CollectionCreateFailure < RPCFailure; end
 
+      # An error occured while migrating the schema of a collection.
+      class CollectionMigrateFailure < RPCFailure; end
+
       # An error occured while deleting a collection.
       class CollectionDeleteFailure < RPCFailure; end
 
@@ -54,6 +63,9 @@ module CipherStash
 
       # An error occured while executing a query.
       class DocumentQueryFailure < RPCFailure; end
+
+      # An error occured while migration records.
+      class RecordMigrateFailure < Error; end
 
       # A query constraint was specified incorrectly.
       #
@@ -73,6 +85,18 @@ module CipherStash
 
       # Some aspect of the schema was not correct.
       class InvalidSchemaError < Error; end
+
+      # Base error for problems with schema versioning.
+      class SchemaVersionError < Error; end
+
+      # The request specified a schema version that does not exist for the specified collection.
+      class UnknownSchemaVersionError < SchemaVersionError; end
+
+      # The request attempted to put a record for a subset of the active schema versions.
+      class IncompleteSchemaVersionCoverageError < SchemaVersionError; end
+
+      # The request specified a schema version which is no longer valid for that operation.
+      class ObsoleteSchemaVersionError < SchemaVersionError; end
     end
   end
 end

@@ -17,31 +17,54 @@ module CipherStash
   class Index
     include UUIDHelpers
 
-    def self.generate(id, settings)
+    def self.generate(id, settings, schema_versions)
       case settings["mapping"]["kind"]
       when "exact"
-        Exact.new(id, settings)
+        Exact.new(id, settings, schema_versions)
       when "range"
-        Range.new(id, settings)
+        Range.new(id, settings, schema_versions)
       when "match"
-        Match.new(id, settings)
+        Match.new(id, settings, schema_versions)
       when "dynamic-match"
-        DynamicMatch.new(id, settings)
+        DynamicMatch.new(id, settings, schema_versions)
       when "field-dynamic-match"
-        FieldDynamicMatch.new(id, settings)
+        FieldDynamicMatch.new(id, settings, schema_versions)
       when "field-dynamic-exact"
-        FieldDynamicExact.new(id, settings)
+        FieldDynamicExact.new(id, settings, schema_versions)
       else
         raise Error::InvalidSchemaError, "Unknown index kind #{settings["mapping"]["kind"].inspect}"
       end
     end
 
     # @return [String] index UUID in human-readable form
-    attr_reader :id
+    attr_reader :uuid
+
+    # @return [String] the contents of the 'meta' section of the index's settings
+    def meta_settings
+      @settings["meta"]
+    end
+
+    # @return [Integer] the first (earliest) version of the collection schema in which this index appears
+    attr_reader :first_schema_version
+
+    # @return [Integer] the last (most recent) version of the collection schema in which this index appears
+    attr_reader :last_schema_version
 
     # Creates a new index from the decrypted settings.
-    def initialize(id, settings)
-      @id, @settings = id, settings
+    def initialize(uuid, settings, schema_versions)
+      unless is_uuid?(uuid)
+        raise Error::InternalError, "Invalid UUID passed to Index.new: #{uuid.inspect}"
+      end
+      unless uuid == settings["meta"]["$indexId"]
+        raise Error::InternalError, "Provided UUID does not match UUID in settings (#{uuid} != #{settings["meta"]["$indexId"]})"
+      end
+      @uuid, @settings = uuid, settings
+      @first_schema_version, @last_schema_version, @is_searchable = schema_versions[:first], schema_versions[:last], schema_versions[:searchable]
+    end
+
+    # @return [String] index ID in "binary" form
+    def binid
+      @binid ||= blob_from_uuid(@uuid)
     end
 
     # The index's name, as defined in the schema
@@ -108,6 +131,21 @@ module CipherStash
     # Return the text processor for this index
     def text_processor
       @text_processor ||= Analysis::TextProcessor.new(@settings["mapping"])
+    end
+
+    # Is this index OK to be queried yet, or is it still pending re-indexing?
+    def searchable?
+      @is_searchable
+    end
+
+    # Determine if the mapping of this index is compatible with the argument
+    #
+    # @param other [Hash<String, Object>] the mapping details to compare against
+    #
+    # @return [Boolean]
+    #
+    def ===(other)
+      @settings["mapping"] === other[:mapping]
     end
 
     private
