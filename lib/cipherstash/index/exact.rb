@@ -6,7 +6,7 @@ module CipherStash
     class Exact < Index
       INDEX_OPS = {
         "eq" => -> (idx, t) do
-          [{ indexId: UUIDHelpers.blob_from_uuid(idx.id), exact: { term: [idx.ore_encrypt(t).to_s] } }]
+          [{ indexId: idx.binid, exact: { term: [idx.ore_encrypt(t).to_s] } }]
         end,
       }
 
@@ -23,7 +23,7 @@ module CipherStash
         if term.nil?
           nil
         else
-          { indexId: blob_from_uuid(@id), terms: [{ term: [ore_encrypt(term).to_s], link: blid }] }
+          { indexId: binid, terms: [{ term: [ore_encrypt(term).to_s], link: blid }] }
         end
       end
     end

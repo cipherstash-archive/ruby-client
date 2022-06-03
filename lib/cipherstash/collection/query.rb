@@ -9,7 +9,6 @@ module CipherStash
     # @private
     class Query
       include Stash::GRPC::V1
-      include UUIDHelpers
 
       def initialize(collection, opts = {})
         @collection = collection
@@ -53,7 +52,7 @@ module CipherStash
             ::Kernel.raise ::CipherStash::Client::Error::QueryOrderingError, "ordering direction must be either :ASC or :DESC (got #{direction.inspect})"
           end
 
-          @__ordering << { indexId: UUIDHelpers.blob_from_uuid(index.id), direction: direction }
+          @__ordering << { indexId: index.binid, direction: direction }
         end
 
         def add_constraint(index_name, operator, *args)
@@ -89,6 +88,11 @@ module CipherStash
             if index.nil?
               ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "undefined index `#{name}' for collection '#{@collection.name}'"
             end
+
+            unless index.searchable?
+              ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "index `#{name}' for collection '#{@collection.name}' is not yet searchable (not all records in the collection have been re-indexed yet)"
+            end
+
 
             index
           end

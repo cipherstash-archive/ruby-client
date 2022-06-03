@@ -6,8 +6,7 @@ module CipherStash
     class DynamicMatch < Index
       INDEX_OPS = {
         "match" => -> (idx, s) do
-          id = UUIDHelpers.blob_from_uuid(idx.id)
-          idx.text_processor.perform(s).map { |t| { indexId: id, exact: { term: [idx.ore_encrypt(t).to_s] } } }
+          idx.text_processor.perform(s).map { |t| { indexId: idx.binid, exact: { term: [idx.ore_encrypt(t).to_s] } } }
         end,
       }
 
@@ -23,7 +22,7 @@ module CipherStash
           nil
         else
           terms = raw_terms.map { |s| text_processor.perform(s) }.flatten.uniq
-          { indexId: blob_from_uuid(@id), terms: terms.map { |t| { term: [ore_encrypt(t).to_s], link: blid } } }
+          { indexId: binid, terms: terms.map { |t| { term: [ore_encrypt(t).to_s], link: blid } } }
         end
       end
     end

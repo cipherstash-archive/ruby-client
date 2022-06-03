@@ -1,17 +1,17 @@
 module CipherStash
   # The fundamental unit of storage.
   class Record
-    # The ID of the record.
+    # The UUID of the record.
     #
     # @return [String] a human-readable formatted UUID.
-    attr_reader :id
+    attr_reader :uuid
 
     # Create a new record.
     #
     # @private
     #
-    def initialize(id, data)
-      @id, @data = id, data
+    def initialize(uuid, data)
+      @uuid, @data = uuid, data
     end
 
     # Fetch the value of a top-level key in a record.

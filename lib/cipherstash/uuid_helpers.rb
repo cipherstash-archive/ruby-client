@@ -11,6 +11,10 @@ module CipherStash
       def blob_from_uuid(uuid)
         [uuid.gsub("-", "")].pack("H*")
       end
+
+      def is_uuid?(s)
+        !!(s =~ /\A\h{8}-(?:\h{4}-){3}\h{12}\z/)
+      end
     end
 
     extend ModuleMethods

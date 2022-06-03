@@ -25,8 +25,8 @@ module CipherStash
     # Create a new collection from its retrieved metadata.
     #
     # @private
-    def initialize(rpc, id, ref, metadata, indexes, logger: nil)
-      @rpc, @id, @ref, @metadata, @indexes = rpc, id, ref, metadata, indexes
+    def initialize(rpc, id, ref, metadata, indexes, schema_versions:, logger: nil)
+      @rpc, @id, @ref, @metadata, @indexes, @schema_versions = rpc, id, ref, metadata, indexes, schema_versions
       @logger = logger || Logger.new("/dev/null")
     end
 
@@ -266,6 +266,35 @@ module CipherStash
       raise
     end
 
+    # Re-index out-of-date records to the collection's current indexes
+    #
+    # @return [TrueClass]
+    #
+    def migrate_records
+      @rpc.migrate_records(self) do |uuid, data|
+        indexes.map { |idx| idx.analyze(uuid, data) }.compact
+      end
+
+      true
+    end
+
+    # Reload the collection's metadata and indexes from the data-service
+    #
+    # After a schema migration or re-indexing -- either by this client or another client running at the same time -- the indexes and metadata cached in this Collection object can be out-of-date with regards to the server.
+    # Calling this method requests the current information about the collection from the server, and updates this object's information to match.
+    #
+    # @return [TrueClass]
+    #
+    def reload
+      new_collection = @rpc.collection_info(name)
+
+      @metadata = new_collection.metadata
+      @indexes = new_collection.indexes
+      @schema_versions = new_collection.schema_versions
+
+      true
+    end
+
     # Retrieve the index with the specified name
     #
     # @private
@@ -277,6 +306,55 @@ module CipherStash
     #
     def index_named(name)
       @indexes.find { |idx| idx.name == name }
+    end
+
+    # Get all the indexes defined on the collection
+    #
+    # @private
+    #
+    # @return [Array<CipherStash::Index>]
+    #
+    attr_reader :indexes
+
+    # Get the collection metadata.
+    #
+    # @private
+    #
+    attr_reader :metadata
+
+    # Get all the schema version info
+    #
+    # @private
+    #
+    attr_reader :schema_versions
+
+    # The current schema version of the collection
+    #
+    # @private
+    #
+    # @return [Integer]
+    #
+    def current_schema_version
+      @schema_versions[:current]
+    end
+
+    # The first (earliest) active schema version of the collection
+    #
+    # @private
+    #
+    # @return [Integer]
+    #
+    def first_active_schema_version
+      @schema_versions[:first_active]
+    end
+    # The last (most recent) active schema version of the collection
+    #
+    # @private
+    #
+    # @return [Integer]
+    #
+    def last_active_schema_version
+      @schema_versions[:last_active]
     end
   end
 end

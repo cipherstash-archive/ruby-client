@@ -87,6 +87,31 @@ module CipherStash
         raise Error::CollectionCreateFailure, "Error while creating collection '#{name}': #{ex.message} (#{ex.class})"
       end
 
+      def migrate_collection(name, metadata, indexes, from_schema_version)
+        res = stub.migrate_collection(
+          Collections::MigrateRequest.new(
+            ref: @profile.ref_for(name),
+            metadata: encrypt_blob(metadata.to_cbor),
+            indexes: indexes.map do |idx|
+              {
+                id: blob_from_uuid(idx[:meta]["$indexId"]),
+                settings: encrypt_blob(idx.to_cbor)
+              }
+            end,
+            fromSchemaVersion: from_schema_version
+          ),
+          metadata: rpc_headers
+        )
+
+        unless res.is_a?(Collections::MigrateReply)
+          raise Error::CollectionMigrateFailure, "expected Collections::InfoReply response, got #{res.class} instead"
+        end
+
+        raise_if_error(res)
+      rescue ::GRPC::BadStatus => ex
+        raise Error::CollectionMigrateFailure, "Error while migrating collection '#{name}': #{ex.message} (#{ex.class})"
+      end
+
       def delete_collection(collection)
         res = stub.delete_collection(Collections::DeleteRequest.new(ref: collection.ref), metadata: rpc_headers)
         unless res.is_a?(Collections::InfoReply)
@@ -105,7 +130,9 @@ module CipherStash
           Documents::PutRequest.new(
             collectionId: blob_from_uuid(collection.id),
             source: { id: blob_from_uuid(id), source: record.nil? ? "" : encrypt_blob(record.to_cbor) },
-            vectors: vectors
+            vectors: vectors,
+            firstSchemaVersion: collection.first_active_schema_version,
+            lastSchemaVersion: collection.current_schema_version
           ),
           metadata: rpc_headers
         )
@@ -113,6 +140,8 @@ module CipherStash
         unless res.is_a?(Documents::PutReply)
           raise Error::RecordPutFailure, "expected Documents::PutReply response, got #{res.class} instead"
         end
+
+        raise_if_error(res)
 
         uuid_from_blob(id)
       rescue ::GRPC::NotFound
@@ -147,6 +176,51 @@ module CipherStash
         raise Error::RecordGetFailure, "Error while getting records from collection '#{collection.name}': #{ex.message} (#{ex.class})"
       end
 
+      def migrate_records(collection)
+        requests = Queue.new
+        class << requests
+          def each
+            loop do
+              item = pop
+              break if closed?
+              yield item
+            end
+          end
+        end
+
+        @logger.debug("CipherStash::Client::RPC#migrate_records") { "Sending :Init" }
+        requests.push(
+          Documents::MigrateRequest.new(
+            type: :Init,
+            collectionId: blob_from_uuid(collection.id),
+            firstSchemaVersion: collection.first_active_schema_version,
+            lastSchemaVersion: collection.current_schema_version
+          )
+        )
+
+        stub.migrate_records(requests, metadata: rpc_headers).each do |res|
+          @logger.debug("CipherStash::Client::RPC#migrate_records") { "Received reply of type #{res.type.inspect}" }
+          if res.type == :Barrier
+            @logger.debug("CipherStash::Client::RPC#migrate_records") { "Sending barrier" }
+            requests.push Documents::MigrateRequest.new(type: :Barrier)
+          elsif res.type == :Done
+            @logger.debug("CipherStash::Client::RPC#migrate_records") { "Closing request queue" }
+            requests.close
+          elsif res.type == :Record
+            if res.record.source == ""
+              raise Error::RecordMigrateFailure, "Cannot migrate record with empty source"
+            end
+
+            doc = CBOR.unpack(cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(res.record.source)))
+
+            @logger.debug("CipherStash::Client::RPC#migrate_records") { "Sending re-indexed record" }
+            requests.push Documents::MigrateRequest.new(type: :Record, record: { id: res.record.id, source: res.record.source }, vectors: yield(uuid_from_blob(res.record.id), doc))
+          else
+            raise Error::RecordMigrateFailure, "Received unexpected MigrateReply: #{res.inspect}"
+          end
+        end
+      end
+
       def delete(collection, id)
         res = stub.delete(Documents::DeleteRequest.new(collectionId: blob_from_uuid(collection.id), id: blob_from_uuid(id)), metadata: rpc_headers)
         unless res.is_a?(Documents::DeleteReply)
@@ -161,11 +235,13 @@ module CipherStash
       end
 
       def query(collection, q)
-        res = stub.query(Queries::QueryRequest.new(collectionId: blob_from_uuid(collection.id), query: q), metadata: rpc_headers)
+        res = stub.query(Queries::QueryRequest.new(collectionId: blob_from_uuid(collection.id), query: q, schemaVersion: collection.last_active_schema_version), metadata: rpc_headers)
 
         unless res.is_a?(Queries::QueryReply)
           raise Error::RecordDeleteFailure, "expected Queries::QueryReply response, got #{res.class} instead"
         end
+
+        raise_if_error(res)
 
         Collection::QueryResult.new(res.records.map { |r| decrypt_record(r) }, res.aggregates)
       rescue ::GRPC::NotFound
@@ -211,23 +287,30 @@ module CipherStash
           metadata,
           info.indexes.map do |idx|
             begin
-              decrypt_index(idx)
+              decrypt_index(idx, info.lastActiveSchemaVersion)
             rescue => ex
               @logger.warn("CipherStash::Client::RPC#decrypt_collection_info") { "Failed to decrypt index #{uuid_from_blob(idx.id)}: #{ex.message} (#{ex.class})" }
               nil
             end
-          end
+          end,
+          schema_versions: {
+            current: info.currentSchemaVersion,
+            first_active: info.firstActiveSchemaVersion,
+            last_active: info.lastActiveSchemaVersion
+          },
+          logger: @logger
         )
       end
 
-      def decrypt_index(idx)
+      def decrypt_index(idx, last_active_schema_version)
         unless idx.is_a?(Indexes::Index)
           raise Error::DecryptionFailure, "expected Indexes::Index, got #{idx.class} instead"
         end
 
         Index.generate(
           uuid_from_blob(idx.id),
-          CBOR.decode(cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(idx.settings)))
+          CBOR.decode(cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(idx.settings))),
+          { first: idx.firstSchemaVersion, last: idx.lastSchemaVersion, searchable: idx.firstSchemaVersion <= last_active_schema_version }
         )
       end
 
@@ -256,6 +339,21 @@ module CipherStash
 
       def cipher_engine
         @cipher_engine ||= @profile.cipher_engine
+      end
+
+      def raise_if_error(res)
+        if res.error != :NoError
+          case res.error
+          when :ErrUnknownSchemaVersion
+            raise Error::UnknownSchemaVersionError
+          when :ErrObsoleteSchemaVersion
+            raise Error::ObsoleteSchemaVersionError
+          when :ErrIncompleteSchemaVersionCoverage
+            raise Error::IncompleteSchemaVersionCoverageError
+          else
+            raise Error::InternalError, "Oops, got an error we don't properly handle: #{res.error}"
+          end
+        end
       end
     end
 
