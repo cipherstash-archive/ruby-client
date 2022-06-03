@@ -72,7 +72,7 @@ module CipherStash
             metadata: encrypt_blob(metadata.to_cbor),
             indexes: indexes.map do |idx|
               {
-                id: blob_from_uuid(SecureRandom.uuid),
+                id: blob_from_uuid(idx[:meta]["$indexId"]),
                 settings: encrypt_blob(idx.to_cbor)
               }
             end
