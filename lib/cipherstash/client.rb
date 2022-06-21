@@ -3,6 +3,7 @@ require "logger"
 require_relative "./access_key"
 require_relative "./client/console"
 require_relative "./client/hash_helper"
+require_relative "./client/metrics"
 require_relative "./client/profile"
 require_relative "./client/rpc"
 
@@ -61,6 +62,10 @@ module CipherStash
     # @option logger [Logger] specify a custom logger.
     #   If not provided, only warnings and errors will be printed to `stderr`.
     #
+    # @option metrics [CipherStash::Client::Metrics] somewhere to collect metrics about this client's operation.
+    #   If not provided, no metrics will be collected.
+    #   For more information on metrics and how they work, see the documentation for CipherStash::Client::Metrics.
+    #
     # @option opts [Hash<Symbol, String | Integer | Boolean>] additional configuration options for the client, which override the values of the corresponding configuration items in the loaded profile, or environment variables.
     #   For the full list of supported option names, see [the Client Configuration reference](https://docs.cipherstash.com/reference/client-configuration.html).
     #
@@ -68,7 +73,7 @@ module CipherStash
     #
     # @raise [CipherStash::Client::Error::InvalidProfileError] if the profile, after being overridden by environment variables and constructor options, was not valid.
     #
-    def initialize(profileName: Unspecified, logger: Unspecified, **opts)
+    def initialize(profileName: Unspecified, logger: Unspecified, metrics: Metrics::Null.new, **opts)
       @logger = if logger == Unspecified
                   Logger.new($stderr).tap { |l| l.level = Logger::WARN; l.formatter = ->(_, _, _, m) { "#{m}\n" } }
                 else
@@ -80,7 +85,9 @@ module CipherStash
       end
 
       @profile = Profile.load(profileName == Unspecified ? nil : profileName, @logger, **opts)
-      @rpc = RPC.new(@profile, @logger)
+      @metrics = metrics
+      @metrics.created
+      @rpc = RPC.new(@profile, @logger, @metrics)
     end
 
     # Load an existing collection from the data store by name.
@@ -94,7 +101,9 @@ module CipherStash
     # @return [CipherStash::Collection]
     #
     def collection(name)
-      @rpc.collection_info(name)
+      @metrics.measure_client_call("collection") do
+        @rpc.collection_info(name)
+      end
     rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Client#collection") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
       raise
@@ -109,7 +118,9 @@ module CipherStash
     # @return [Array<CipherStash::Collection>]
     #
     def collections
-      @rpc.collection_list
+      @metrics.measure_client_call("collections") do
+        @rpc.collection_list
+      end
     rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Client#collections") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
       raise
@@ -131,45 +142,47 @@ module CipherStash
     # @raise [CipherStash::Client::Error::DecryptionFailure] if there was a problem decrypting the naming key.
     #
     def create_collection(name, schema)
-      metadata = {
-        name: name,
-        recordType: schema.fetch("type", {}),
-      }
-
-      indexes = schema.fetch("indexes", {}).map do |idx_name, idx_settings|
-        {
-          meta: {
-            "$indexId" => SecureRandom.uuid,
-            "$indexName" => idx_name,
-            "$prfKey" => SecureRandom.hex(16),
-            "$prpKey" => SecureRandom.hex(16),
-          },
-          mapping: idx_settings.merge(
-            {
-              "fieldType" => case idx_settings["kind"]
-              when "exact", "range"
-                schema["type"][idx_settings["field"]]
-              when "match", "dynamic-match", "field-dynamic-match"
-                "string"
-              else
-                raise Error::InvalidSchemaError, "Unknown index kind #{idx_settings["kind"]}"
-              end
-            }
-          ),
+      @metrics.measure_client_call("create_collection") do
+        metadata = {
+          name: name,
+          recordType: schema.fetch("type", {}),
         }
-      end
 
-      begin
-        @rpc.create_collection(name, metadata, indexes)
-      rescue CipherStash::Client::Error::CollectionCreateFailure => ex
-        if ::GRPC::AlreadyExists === ex.cause
-          migrate_collection(name, metadata, indexes)
-        else
-          raise
+        indexes = schema.fetch("indexes", {}).map do |idx_name, idx_settings|
+          {
+            meta: {
+              "$indexId" => SecureRandom.uuid,
+              "$indexName" => idx_name,
+              "$prfKey" => SecureRandom.hex(16),
+              "$prpKey" => SecureRandom.hex(16),
+            },
+            mapping: idx_settings.merge(
+              {
+                "fieldType" => case idx_settings["kind"]
+                when "exact", "range"
+                  schema["type"][idx_settings["field"]]
+                when "match", "dynamic-match", "field-dynamic-match"
+                  "string"
+                else
+                  raise Error::InvalidSchemaError, "Unknown index kind #{idx_settings["kind"]}"
+                end
+              }
+            ),
+          }
         end
-      end
 
-      true
+        begin
+          @rpc.create_collection(name, metadata, indexes)
+        rescue CipherStash::Client::Error::CollectionCreateFailure => ex
+          if ::GRPC::AlreadyExists === ex.cause
+            migrate_collection(name, metadata, indexes)
+          else
+            raise
+          end
+        end
+
+        true
+      end
     rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Client#create_collection") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
       raise
@@ -188,7 +201,9 @@ module CipherStash
     # @raise [CipherStash::Client::Error::ConsoleAccessFailure] if the CipherStash Console, which issues and maintains access keys, could not be contacted.
     #
     def create_access_key(name)
-      AccessKey.new(symbolize_keys(console.create_access_key(name, @profile.workspace)))
+      @metrics.measure_client_call("create_access_key") do
+        AccessKey.new(symbolize_keys(console.create_access_key(name, @profile.workspace)))
+      end
     end
 
     # Get the list of currently-extant access keys for the workspace of this client.
@@ -198,7 +213,9 @@ module CipherStash
     # @raise [CipherStash::Client::Error::ConsoleAccessFailure] if the CipherStash Console, which issues and maintains access keys, could not be contacted.
     #
     def access_keys
-      console.access_key_list(@profile.workspace).map { |ak| AccessKey.new(symbolize_keys(ak)) }
+      @metrics.measure_client_call("access_keys") do
+        console.access_key_list(@profile.workspace).map { |ak| AccessKey.new(symbolize_keys(ak)) }
+      end
     end
 
     # Delete an access key from the workspace of this client.
@@ -211,7 +228,9 @@ module CipherStash
     # @raise [CipherStash::Client::Error::ConsoleAccessFailure] if the CipherStash Console, which issues and maintains access keys, could not be contacted.
     #
     def delete_access_key(name)
-      console.delete_access_key(name, @profile.workspace)
+      @metrics.measure_client_call("delete_access_key") do
+        console.delete_access_key(name, @profile.workspace)
+      end
     end
 
     # Generate an (encrypted) "naming key" from the wrapping key configured for this client.
@@ -223,7 +242,9 @@ module CipherStash
     #
     # @return [String]
     def generate_naming_key
-      @profile.generate_naming_key
+      @metrics.measure_client_call("generate_naming_key") do
+        @profile.generate_naming_key
+      end
     end
 
     private

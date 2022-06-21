@@ -80,5 +80,21 @@ describe CipherStash::Client do
     it "overrides awsAccessKeyId if provided"
     it "overrides awsSecretAccessKey if provided"
     it "overrides awsRegion if provided"
+
+    context "with a metrics collector" do
+      let(:metrics) { described_class::Metrics::Hash.new }
+      let!(:client) { described_class.new(metrics: metrics) }
+
+      it "doesn't explode" do
+        expect { client }.to_not raise_error
+      end
+
+      it "registers the client start time" do
+        expect(metrics).to respond_to(:[])
+        expect(metrics[:creation_timestamp_seconds]).to be_a(Hash)
+        p metrics[:creation_timestamp_seconds]
+        expect(metrics[:creation_timestamp_seconds][{}]).to be_within(0.1).of(Time.now.to_f)
+      end
+    end
   end
 end
