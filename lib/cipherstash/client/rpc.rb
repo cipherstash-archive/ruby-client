@@ -34,20 +34,23 @@ module CipherStash
     #
     class RPC
       include Stash::GRPC::V1
+      include CipherStash::UUIDHelpers
 
-      def initialize(profile, logger)
-        @profile, @logger = profile, logger
+      def initialize(profile, logger, metrics)
+        @profile, @logger, @metrics = profile, logger, metrics
 
         @logger.debug("CipherStash::Client::RPC") { "Connecting to data-service at '#{@profile.service_host}:#{@profile.service_port}'" }
       end
 
       def collection_info(name)
-        res = stub.collection_info(Collections::InfoRequest.new(ref: @profile.ref_for(name)), metadata: rpc_headers)
+        res = @metrics.measure_rpc_call("collectionInfo") do
+          stub.collection_info(Collections::InfoRequest.new(ref: @profile.ref_for(name)), metadata: rpc_headers)
+        end
         unless res.is_a?(Collections::InfoReply)
           raise Error::CollectionInfoFailure, "expected Collections::InfoReply response, got #{res.class} instead"
         end
 
-        decrypt_collection_info(res)
+        decrypt_collection_info(res, "collectionInfo")
       rescue ::GRPC::NotFound
         raise Error::CollectionInfoFailure, "Collection '#{name}' not found"
       rescue ::GRPC::BadStatus => ex
@@ -55,30 +58,33 @@ module CipherStash
       end
 
       def collection_list
-        res = stub.collection_list(Collections::ListRequest.new, metadata: rpc_headers)
+        res = @metrics.measure_rpc_call("collectionList") do
+          stub.collection_list(Collections::ListRequest.new, metadata: rpc_headers)
+        end
         unless res.is_a?(Collections::ListReply)
           raise Error::CollectionListFailure, "expected Collections::ListReply response, got #{res.class} instead"
         end
 
-        res.collections.map { |c| decrypt_collection_info(c) }
+        res.collections.map { |c| decrypt_collection_info(c, "collectionList") }
       rescue ::GRPC::BadStatus => ex
         raise Error::CollectionListFailure, "Error while getting collection list: #{ex.message} (#{ex.class})"
       end
 
       def create_collection(name, metadata, indexes)
-        res = stub.create_collection(
-          Collections::CreateRequest.new(
-            ref: @profile.ref_for(name),
-            metadata: encrypt_blob(metadata.to_cbor),
-            indexes: indexes.map do |idx|
-              {
-                id: blob_from_uuid(idx[:meta]["$indexId"]),
-                settings: encrypt_blob(idx.to_cbor)
-              }
-            end
-          ),
-          metadata: rpc_headers
-        )
+        req = Collections::CreateRequest.new(
+                ref: @profile.ref_for(name),
+                metadata: encrypt_blob(metadata.to_cbor, "createCollection"),
+                indexes: indexes.map do |idx|
+                  {
+                    id: blob_from_uuid(idx[:meta]["$indexId"]),
+                    settings: encrypt_blob(idx.to_cbor, "createCollection")
+                  }
+                end
+              )
+
+        res = @metrics.measure_rpc_call("createCollection") do
+          stub.create_collection(req, metadata: rpc_headers)
+        end
 
         unless res.is_a?(Collections::InfoReply)
           raise Error::CollectionCreationFailure, "expected Collections::InfoReply response, got #{res.class} instead"
@@ -88,20 +94,21 @@ module CipherStash
       end
 
       def migrate_collection(name, metadata, indexes, from_schema_version)
-        res = stub.migrate_collection(
-          Collections::MigrateRequest.new(
-            ref: @profile.ref_for(name),
-            metadata: encrypt_blob(metadata.to_cbor),
-            indexes: indexes.map do |idx|
-              {
-                id: blob_from_uuid(idx[:meta]["$indexId"]),
-                settings: encrypt_blob(idx.to_cbor)
-              }
-            end,
-            fromSchemaVersion: from_schema_version
-          ),
-          metadata: rpc_headers
-        )
+        req = Collections::MigrateRequest.new(
+                ref: @profile.ref_for(name),
+                metadata: encrypt_blob(metadata.to_cbor, "migrateCollection"),
+                indexes: indexes.map do |idx|
+                  {
+                    id: blob_from_uuid(idx[:meta]["$indexId"]),
+                    settings: encrypt_blob(idx.to_cbor, "migrateCollection")
+                  }
+                end,
+                fromSchemaVersion: from_schema_version
+              )
+
+        res = @metrics.measure_rpc_call("migrateCollection") do
+          stub.migrate_collection(req, metadata: rpc_headers)
+        end
 
         unless res.is_a?(Collections::MigrateReply)
           raise Error::CollectionMigrateFailure, "expected Collections::InfoReply response, got #{res.class} instead"
@@ -113,7 +120,9 @@ module CipherStash
       end
 
       def delete_collection(collection)
-        res = stub.delete_collection(Collections::DeleteRequest.new(ref: collection.ref), metadata: rpc_headers)
+        res = @metrics.measure_rpc_call("deleteCollection") do
+          stub.delete_collection(Collections::DeleteRequest.new(ref: collection.ref), metadata: rpc_headers)
+        end
         unless res.is_a?(Collections::InfoReply)
           raise Error::CollectionDeleteFailure, "expected Collections::InfoReply response, got #{res.class} instead"
         end
@@ -126,16 +135,17 @@ module CipherStash
       end
 
       def put(collection, id, record, vectors)
-        res = stub.put(
-          Documents::PutRequest.new(
-            collectionId: blob_from_uuid(collection.id),
-            source: { id: blob_from_uuid(id), source: record.nil? ? "" : encrypt_blob(record.to_cbor) },
-            vectors: vectors,
-            firstSchemaVersion: collection.first_active_schema_version,
-            lastSchemaVersion: collection.current_schema_version
-          ),
-          metadata: rpc_headers
+        doc = Documents::PutRequest.new(
+          collectionId: blob_from_uuid(collection.id),
+          source: { id: blob_from_uuid(id), source: record.nil? ? "" : encrypt_blob(record.to_cbor, "put") },
+          vectors: vectors,
+          firstSchemaVersion: collection.first_active_schema_version,
+          lastSchemaVersion: collection.current_schema_version
         )
+
+        res = @metrics.measure_rpc_call("put") do
+          stub.put(doc, metadata: rpc_headers)
+        end
 
         unless res.is_a?(Documents::PutReply)
           raise Error::RecordPutFailure, "expected Documents::PutReply response, got #{res.class} instead"
@@ -151,12 +161,14 @@ module CipherStash
       end
 
       def get(collection, id)
-        res = stub.get(Documents::GetRequest.new(collectionId: blob_from_uuid(collection.id), id: blob_from_uuid(id)), metadata: rpc_headers)
+        res = @metrics.measure_rpc_call("get") do
+          stub.get(Documents::GetRequest.new(collectionId: blob_from_uuid(collection.id), id: blob_from_uuid(id)), metadata: rpc_headers)
+        end
         unless res.is_a?(Documents::GetReply)
           raise Error::RecordGetFailure, "expected Documents::GetReply response, got #{res.class} instead"
         end
 
-        decrypt_record(res.source)
+        decrypt_record(res.source, "get")
       rescue ::GRPC::NotFound
         raise Error::RecordGetFailure, "Collection '#{collection.name}' not found"
       rescue ::GRPC::BadStatus => ex
@@ -164,12 +176,14 @@ module CipherStash
       end
 
       def get_all(collection, ids)
-        res = stub.get_all(Documents::GetAllRequest.new(collectionId: blob_from_uuid(collection.id), ids: ids.map { |x| blob_from_uuid(x) }), metadata: rpc_headers)
+        res = @metrics.measure_rpc_call("getAll") do
+          stub.get_all(Documents::GetAllRequest.new(collectionId: blob_from_uuid(collection.id), ids: ids.map { |x| blob_from_uuid(x) }), metadata: rpc_headers)
+        end
         unless res.is_a?(Documents::GetAllReply)
           raise Error::RecordGetFailure, "expected Documents::GetAllReply response, got #{res.class} instead"
         end
 
-        res.documents.map { |r| decrypt_record(r) }
+        res.documents.map { |r| decrypt_record(r, "getAll") }
       rescue ::GRPC::NotFound
         raise Error::RecordGetFailure, "Collection '#{collection.name}' not found"
       rescue ::GRPC::BadStatus => ex
@@ -183,7 +197,9 @@ module CipherStash
             loop do
               item = pop
               break if closed?
-              yield item
+              @metrics.measure_rpc_call("migrateRecords") do
+                yield item
+              end
             end
           end
         end
@@ -211,7 +227,7 @@ module CipherStash
               raise Error::RecordMigrateFailure, "Cannot migrate record with empty source"
             end
 
-            doc = CBOR.unpack(cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(res.record.source)))
+            doc = CBOR.unpack(decrypt_blob(res.record.source, "migrateRecords"))
 
             @logger.debug("CipherStash::Client::RPC#migrate_records") { "Sending re-indexed record" }
             requests.push Documents::MigrateRequest.new(type: :Record, record: { id: res.record.id, source: res.record.source }, vectors: yield(uuid_from_blob(res.record.id), doc))
@@ -222,7 +238,9 @@ module CipherStash
       end
 
       def delete(collection, id)
-        res = stub.delete(Documents::DeleteRequest.new(collectionId: blob_from_uuid(collection.id), id: blob_from_uuid(id)), metadata: rpc_headers)
+        res = @metrics.measure_rpc_call("delete") do
+          stub.delete(Documents::DeleteRequest.new(collectionId: blob_from_uuid(collection.id), id: blob_from_uuid(id)), metadata: rpc_headers)
+        end
         unless res.is_a?(Documents::DeleteReply)
           raise Error::RecordDeleteFailure, "expected Documents::DeleteReply response, got #{res.class} instead"
         end
@@ -235,7 +253,9 @@ module CipherStash
       end
 
       def query(collection, q)
-        res = stub.query(Queries::QueryRequest.new(collectionId: blob_from_uuid(collection.id), query: q, schemaVersion: collection.last_active_schema_version), metadata: rpc_headers)
+        res = @metrics.measure_rpc_call("query") do
+          stub.query(Queries::QueryRequest.new(collectionId: blob_from_uuid(collection.id), query: q, schemaVersion: collection.last_active_schema_version), metadata: rpc_headers)
+        end
 
         unless res.is_a?(Queries::QueryReply)
           raise Error::RecordDeleteFailure, "expected Queries::QueryReply response, got #{res.class} instead"
@@ -243,7 +263,7 @@ module CipherStash
 
         raise_if_error(res)
 
-        Collection::QueryResult.new(res.records.map { |r| decrypt_record(r) }, res.aggregates)
+        Collection::QueryResult.new(res.records.map { |r| decrypt_record(r, "query") }, res.aggregates)
       rescue ::GRPC::NotFound
         raise Error::DocumentQueryFailure, "Collection '#{collection.name}' not found"
       rescue ::GRPC::BadStatus => ex
@@ -268,13 +288,13 @@ module CipherStash
         { authorization: "Bearer #{@profile.with_access_token[:access_token]}" }
       end
 
-      def decrypt_collection_info(info)
+      def decrypt_collection_info(info, rpc)
         unless info.is_a?(Collections::InfoReply)
           raise Error::DecryptionFailure, "expected Collections::InfoReply, got #{info.class} instead"
         end
 
         metadata = begin
-                     CBOR.decode(cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(info.metadata)))
+                     CBOR.decode(decrypt_blob(info.metadata, rpc))
                    rescue => ex
                      @logger.warn("CipherStash::Client::RPC#decrypt_collection_info") { "Failed to decrypt collection metadata: #{ex.message} (#{ex.class})" }
                      {}
@@ -287,7 +307,7 @@ module CipherStash
           metadata,
           info.indexes.map do |idx|
             begin
-              decrypt_index(idx, info.lastActiveSchemaVersion)
+              decrypt_index(idx, info.lastActiveSchemaVersion, rpc)
             rescue => ex
               @logger.warn("CipherStash::Client::RPC#decrypt_collection_info") { "Failed to decrypt index #{uuid_from_blob(idx.id)}: #{ex.message} (#{ex.class})" }
               nil
@@ -298,43 +318,45 @@ module CipherStash
             first_active: info.firstActiveSchemaVersion,
             last_active: info.lastActiveSchemaVersion
           },
-          logger: @logger
+          logger: @logger,
+          metrics: @metrics
         )
       end
 
-      def decrypt_index(idx, last_active_schema_version)
+      def decrypt_index(idx, last_active_schema_version, rpc)
         unless idx.is_a?(Indexes::Index)
           raise Error::DecryptionFailure, "expected Indexes::Index, got #{idx.class} instead"
         end
 
         Index.generate(
           uuid_from_blob(idx.id),
-          CBOR.decode(cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(idx.settings))),
+          CBOR.decode(decrypt_blob(idx.settings, rpc)),
           { first: idx.firstSchemaVersion, last: idx.lastSchemaVersion, searchable: idx.firstSchemaVersion <= last_active_schema_version }
         )
       end
 
-      def decrypt_record(r)
+      def decrypt_record(r, rpc)
         unless r.is_a?(Documents::Document)
           raise Error::DecryptionFailure, "expected Documents::Document, got #{r.class} instead"
         end
 
         Record.new(
           uuid_from_blob(r.id),
-          r.source == "" ? nil : CBOR.unpack(cipher_engine.decrypt(Enveloperb::EncryptedRecord.new(r.source)))
+          r.source == "" ? nil : CBOR.unpack(decrypt_blob(r.source, rpc))
         )
       end
 
-      def uuid_from_blob(blob)
-        blob.unpack("H*").first.scan(/^(.{8})(.{4})(.{4})(.{4})(.*)$/).join("-")
+      def encrypt_blob(blob, rpc)
+        @metrics.measure_crypto_call("encrypt", rpc) do
+          cipher_engine.encrypt(blob).to_s
+        end
       end
 
-      def blob_from_uuid(uuid)
-        [uuid.gsub("-", "")].pack("H*")
-      end
-
-      def encrypt_blob(blob)
-        cipher_engine.encrypt(blob).to_s
+      def decrypt_blob(blob, rpc)
+        er = Enveloperb::EncryptedRecord.new(blob)
+        @metrics.measure_crypto_call("decrypt", rpc) do
+          cipher_engine.decrypt(er)
+        end
       end
 
       def cipher_engine

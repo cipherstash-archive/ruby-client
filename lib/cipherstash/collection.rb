@@ -25,8 +25,8 @@ module CipherStash
     # Create a new collection from its retrieved metadata.
     #
     # @private
-    def initialize(rpc, id, ref, metadata, indexes, schema_versions:, logger: nil)
-      @rpc, @id, @ref, @metadata, @indexes, @schema_versions = rpc, id, ref, metadata, indexes, schema_versions
+    def initialize(rpc, id, ref, metadata, indexes, schema_versions:, logger: nil, metrics:)
+      @rpc, @id, @ref, @metadata, @indexes, @schema_versions, @metrics = rpc, id, ref, metadata, indexes, schema_versions, metrics
       @logger = logger || Logger.new("/dev/null")
     end
 
@@ -53,16 +53,18 @@ module CipherStash
     # @raise [CipherStash::Client::Error::RPCFailure] if a low-level communication problem with the server caused the insert to fail.
     #
     def insert(record, store_record: true)
-      unless store_record
-        @logger.debug("CipherStash::Collection#insert") { "DEPRECATION NOTICE: 'store_record: false' is no longer supported; please stop using it" }
+      @metrics.measure_client_call("insert") do
+        unless store_record
+          @logger.debug("CipherStash::Collection#insert") { "DEPRECATION NOTICE: 'store_record: false' is no longer supported; please stop using it" }
+        end
+
+        uuid = SecureRandom.uuid
+
+        vectors = @indexes.map { |idx| idx.analyze(uuid, record) }.compact
+        @rpc.put(self, uuid, record, vectors)
+
+        uuid
       end
-
-      uuid = SecureRandom.uuid
-
-      vectors = @indexes.map { |idx| idx.analyze(uuid, record) }.compact
-      @rpc.put(self, uuid, record, vectors)
-
-      uuid
     rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Collection#insert") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
       raise
@@ -88,14 +90,16 @@ module CipherStash
     # @raise [CipherStash::Client::Error::RPCFailure] if a low-level communication problem with the server caused the insert to fail.
     #
     def upsert(id, record, store_record: true)
-      unless id.is_a?(String)
-        raise ArgumentError, "Must provide a string ID"
+      @metrics.measure_client_call("upsert") do
+        unless id.is_a?(String)
+          raise ArgumentError, "Must provide a string ID"
+        end
+
+        vectors = @indexes.map { |idx| idx.analyze(id, record) }.compact
+        @rpc.put(self, id, store_record ? record : nil, vectors)
+
+        true
       end
-
-      vectors = @indexes.map { |idx| idx.analyze(id, record) }.compact
-      @rpc.put(self, id, store_record ? record : nil, vectors)
-
-      true
     rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Collection#upsert") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
       raise
@@ -116,10 +120,12 @@ module CipherStash
     # @raise [CipherStash::Client::Error::RPCFailure] if a low-level communication problem with the server caused the operation to fail.
     #
     def get(id)
-      if id.is_a?(Array)
-        @rpc.get_all(self, id)
-      else
-        @rpc.get(self, id)
+      @metrics.measure_client_call("get") do
+        if id.is_a?(Array)
+          @rpc.get_all(self, id)
+        else
+          @rpc.get(self, id)
+        end
       end
     rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Collection#get") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
@@ -137,7 +143,9 @@ module CipherStash
     # @raise [CipherStash::Client::Error::RPCFailure] if a low-level communication problem with the server caused the operation to fail.
     #
     def delete(id)
-      @rpc.delete(self, id)
+      @metrics.measure_client_call("delete") do
+        @rpc.delete(self, id)
+      end
     rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Collection#delete") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
       raise
@@ -149,7 +157,9 @@ module CipherStash
     # Don't call it on a whim.
     #
     def drop
-      @rpc.delete_collection(self)
+      @metrics.measure_client_call("drop") do
+        @rpc.delete_collection(self)
+      end
     rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Collection#drop") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
       raise
@@ -259,8 +269,10 @@ module CipherStash
     # @raise [CipherStash::Client::Error::RPCFailure] if a low-level communication problem with the server caused the query to fail.
     #
     def query(opts = {}, &blk)
-      q = Query.new(self, opts)
-      @rpc.query(self, q.parse(&blk))
+      @metrics.measure_client_call("query") do
+        q = Query.new(self, opts)
+        @rpc.query(self, q.parse(&blk))
+      end
     rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Collection#query") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
       raise
@@ -271,11 +283,13 @@ module CipherStash
     # @return [TrueClass]
     #
     def migrate_records
-      @rpc.migrate_records(self) do |uuid, data|
-        indexes.map { |idx| idx.analyze(uuid, data) }.compact
-      end
+      @metrics.measure_client_call("migrate_records") do
+        @rpc.migrate_records(self) do |uuid, data|
+          indexes.map { |idx| idx.analyze(uuid, data) }.compact
+        end
 
-      true
+        true
+      end
     end
 
     # Reload the collection's metadata and indexes from the data-service
@@ -286,13 +300,15 @@ module CipherStash
     # @return [TrueClass]
     #
     def reload
-      new_collection = @rpc.collection_info(name)
+      @metrics.measure_client_call("reload") do
+        new_collection = @rpc.collection_info(name)
 
-      @metadata = new_collection.metadata
-      @indexes = new_collection.indexes
-      @schema_versions = new_collection.schema_versions
+        @metadata = new_collection.metadata
+        @indexes = new_collection.indexes
+        @schema_versions = new_collection.schema_versions
 
-      true
+        true
+      end
     end
 
     # Retrieve the index with the specified name
