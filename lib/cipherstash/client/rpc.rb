@@ -237,6 +237,48 @@ module CipherStash
         end
       end
 
+      def put_stream(collection, records)
+        records = records.lazy.map do |id, record, vectors|
+          @metrics.measure_rpc_call("putStream", :excluded) do
+            Documents::StreamingPutRequest.new(
+              document: {
+                source: {
+                  id: blob_from_uuid(id),
+                  source: encrypt_blob(record.to_cbor, "putStream"),
+                },
+                vectors: vectors
+              }
+            )
+          end
+        end
+
+        begin_request = Documents::StreamingPutRequest.new(
+          begin: {
+            collectionId: blob_from_uuid(collection.id),
+            firstSchemaVersion: collection.first_active_schema_version,
+            lastSchemaVersion: collection.current_schema_version
+          }
+        )
+
+        # Prepending an item onto a lazy enum while maintaining laziness
+        # isn't the most idiomatic code on earth...
+        requests = [[begin_request], records].lazy.flat_map { |x| x }
+
+        res = @metrics.measure_rpc_call("putStream") do
+          stub.put_stream(requests, metadata: rpc_headers)
+        end
+
+        unless res.is_a?(Documents::StreamingPutReply)
+          raise Error::StreamingPutFailure, "expected Documents::StreamingPutReply response, got #{res.class} instead"
+        end
+
+        raise_if_error(res)
+
+        res.numInserted
+      rescue ::GRPC::NotFound
+        raise Error::RecordDeleteFailure, "Collection '#{collection.name}' not found"
+      end
+
       def delete(collection, id)
         res = @metrics.measure_rpc_call("delete") do
           stub.delete(Documents::DeleteRequest.new(collectionId: blob_from_uuid(collection.id), id: blob_from_uuid(id)), metadata: rpc_headers)
