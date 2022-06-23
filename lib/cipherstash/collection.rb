@@ -111,6 +111,68 @@ module CipherStash
       raise
     end
 
+    # Bulk insert-or-update of many records into the collection.
+    #
+    # When you have a lot of records that need to be upserted into the collection, doing them one-by-one with #upsert can take a long time, because each upsert needs to complete before you can start the next one.
+    # By using this "streaming" upsert instead, you can just mass-spam records into the collection, which greatly reduces round-trips (and hence round-trip wait time).
+    #
+    # To stream records, you provide any object that responds to `#each` (in the manner of an enumerable) and yields a series of `{ id: <uuid>, record: <hash> }` objects.
+    # For small record sets this enumerable can be an array, but for larger data sets you could stream the inputs from, say, a Postgres database using cursors.
+    #
+    # @example Stream an array of records
+    #   records = [
+    #     {
+    #       id: "9a08f6c9-faf3-4bcf-a5eb-fcaf066a9b3f",
+    #       record: {
+    #         title: "Star Trek: The Motion Picture",
+    #         runningTime: 132,
+    #         year: 1979,
+    #       },
+    #     },
+    #     {
+    #       id: "f7f6443b-99c0-4579-9721-d77052769f44",
+    #       record: {
+    #         title: "Star Trek II: The Wrath of Khan",
+    #         runningTime: 113,
+    #         year: 1982,
+    #       },
+    #     },
+    #     # etc etc etc
+    #   }
+    #   count = collection.streaming_upsert(records)
+    #   puts "Upserted #{count} records"
+    #
+    # @example Stream lots (possibly billions) of records from an ActiveRecord model, using streaming
+    #   count = collection.streaming_upsert(User.find_each)
+    #   puts "Upserted #{count} records"
+    #
+    # @return [Integer] the number of records upserted into the database, including exact duplicates.
+    #
+    # @raise [CipherStash::Client::Error::StreamingPutFailure] if the record could not be inserted for some reason.
+    #
+    # @raise [CipherStash::Client::Error::EncryptionFailure] if there was a problem encrypting the record.
+    #
+    # @raise [CipherStash::Client::Error::RPCFailure] if a low-level communication problem with the server caused the insert to fail.
+    #
+    def streaming_upsert(records)
+      @metrics.measure_client_call("streaming_upsert") do
+        records = records.lazy.map do |r|
+          @metrics.measure_rpc_call("putStream", :excluded) do
+            unless r.is_a?(Hash) && r.key?(:id) && r.key?(:record)
+              raise ArgumentError, "Malformed record passed to streaming_upsert: #{r.inspect}"
+            end
+            vectors = @indexes.map { |idx| idx.analyze(r[:id], r[:record]) }.compact
+            [r[:id], r[:record], vectors]
+          end
+        end
+
+        @rpc.put_stream(self, records)
+      end
+    rescue ::GRPC::Core::StatusCodes => ex
+      @logger.error("CipherStash::Collection#streaming_upsert") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
+      raise
+    end
+
     # Retrieve one or more records from the collection.
     #
     # @param id [String, Array<String>] the ID(s) of the record(s) to retrieve.
