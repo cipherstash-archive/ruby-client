@@ -43,6 +43,7 @@ module CipherStash
     # @param record [Hash] the complete record to store in the database.
     #
     # @option store_record [Boolean] if set to false, the record data itself will not be stored in the data store.
+    #   DEPRECATED.
     #
     # @return [String] the UUID of the newly-created record.
     #
@@ -75,11 +76,12 @@ module CipherStash
     # If a record with the given ID already exists in the collection, its contents (and indexes) will be updated.
     # Otherwise, a new record will be inserted, with the ID specified.
     #
-    # @param record [String] the human-readable UUID of the record.
+    # @param id [String] the human-readable UUID of the record.
     #
     # @param record [Hash] the complete record to store in the database.
     #
     # @option store_record [Boolean] if set to false, the record data itself will not be stored in the data store.
+    #   DEPRECATED.
     #
     # @return [TrueClass]
     #
@@ -91,6 +93,10 @@ module CipherStash
     #
     def upsert(id, record, store_record: true)
       @metrics.measure_client_call("upsert") do
+        unless store_record
+          @logger.debug("CipherStash::Collection#upsert") { "DEPRECATION NOTICE: 'store_record: false' is no longer supported; please stop using it" }
+        end
+
         unless id.is_a?(String)
           raise ArgumentError, "Must provide a string ID"
         end
