@@ -9,6 +9,9 @@ require_relative "./index/ore_match"
 require_relative "./index/dynamic_ore_match"
 require_relative "./index/field_dynamic_ore_match"
 require_relative "./index/field_dynamic_exact"
+require_relative "./index/filter_match"
+require_relative "./index/dynamic_filter_match"
+require_relative "./index/field_dynamic_filter_match"
 
 module CipherStash
   # Represents an index on a CipherStash collection.
@@ -31,6 +34,12 @@ module CipherStash
         FieldDynamicOreMatch.new(id, settings, schema_versions)
       when "field-dynamic-exact"
         FieldDynamicExact.new(id, settings, schema_versions)
+      when "filter-match"
+        FilterMatch.new(id, settings, schema_versions)
+      when "dynamic-filter-match"
+        DynamicFilterMatch.new(id, settings, schema_versions)
+      when "field-dynamic-filter-match"
+        FieldDynamicFilterMatch.new(id, settings, schema_versions)
       else
         raise Error::InvalidSchemaError, "Unknown index kind #{settings["mapping"]["kind"].inspect}"
       end
