@@ -23,11 +23,11 @@ module CipherStash
         Exact.new(id, settings, schema_versions)
       when "range"
         Range.new(id, settings, schema_versions)
-      when "match"
+      when "match", "ore-match"
         OreMatch.new(id, settings, schema_versions)
-      when "dynamic-match"
+      when "dynamic-match", "dynamic-ore-match"
         DynamicOreMatch.new(id, settings, schema_versions)
-      when "field-dynamic-match"
+      when "field-dynamic-match", "field-dynamic-ore-match"
         FieldDynamicOreMatch.new(id, settings, schema_versions)
       when "field-dynamic-exact"
         FieldDynamicExact.new(id, settings, schema_versions)
