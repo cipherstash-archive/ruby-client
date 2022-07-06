@@ -3,7 +3,7 @@ module CipherStash
     # Implementation for the 'field-dynamic-match' index type
     #
     # @private
-    class FieldDynamicMatch < Index
+    class FieldDynamicOreMatch < Index
       INDEX_OPS = {
         "match" => -> (idx, f, s) do
           idx.text_processor.perform(s).map { |t| { indexId: idx.binid, exact: { term: [idx.ore_encrypt("#{f}:#{t}").to_s] } } }

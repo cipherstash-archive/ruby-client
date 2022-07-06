@@ -5,9 +5,9 @@ require_relative "./analysis/text_processor"
 
 require_relative "./index/exact"
 require_relative "./index/range"
-require_relative "./index/match"
-require_relative "./index/dynamic_match"
-require_relative "./index/field_dynamic_match"
+require_relative "./index/ore_match"
+require_relative "./index/dynamic_ore_match"
+require_relative "./index/field_dynamic_ore_match"
 require_relative "./index/field_dynamic_exact"
 
 module CipherStash
@@ -24,11 +24,11 @@ module CipherStash
       when "range"
         Range.new(id, settings, schema_versions)
       when "match"
-        Match.new(id, settings, schema_versions)
+        OreMatch.new(id, settings, schema_versions)
       when "dynamic-match"
-        DynamicMatch.new(id, settings, schema_versions)
+        DynamicOreMatch.new(id, settings, schema_versions)
       when "field-dynamic-match"
-        FieldDynamicMatch.new(id, settings, schema_versions)
+        FieldDynamicOreMatch.new(id, settings, schema_versions)
       when "field-dynamic-exact"
         FieldDynamicExact.new(id, settings, schema_versions)
       else
