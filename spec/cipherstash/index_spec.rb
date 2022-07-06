@@ -109,5 +109,38 @@ describe CipherStash::Index do
         expect(index).to be_an_instance_of(CipherStash::Index::FieldDynamicOreMatch)
       end
     end
+
+    context "given a filter-match kind" do
+      it "generates an FilterMatch index" do
+        kind = "filter-match"
+        settings = match_settings(id, kind)
+
+        index = described_class.generate(id, settings, schema_versions)
+
+        expect(index).to be_an_instance_of(CipherStash::Index::FilterMatch)
+      end
+    end
+
+    context "given a dynamic-filter-match kind" do
+      it "generates an DynamicFilterMatch index" do
+        kind = "dynamic-filter-match"
+        settings = match_settings(id, kind)
+
+        index = described_class.generate(id, settings, schema_versions)
+
+        expect(index).to be_an_instance_of(CipherStash::Index::DynamicFilterMatch)
+      end
+    end
+
+    context "given a field-dynamic-filter-match kind" do
+      it "generates an FieldDynamicFilterMatch index" do
+        kind = "field-dynamic-filter-match"
+        settings = match_settings(id, kind)
+
+        index = described_class.generate(id, settings, schema_versions)
+
+        expect(index).to be_an_instance_of(CipherStash::Index::FieldDynamicFilterMatch)
+      end
+    end
   end
 end
