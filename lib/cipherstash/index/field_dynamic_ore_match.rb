@@ -1,6 +1,6 @@
 module CipherStash
   class Index
-    # Implementation for the 'field-dynamic-match' index type
+    # Implementation for the 'field-dynamic-ore-match' index type
     #
     # @private
     class FieldDynamicOreMatch < Index
