@@ -1,6 +1,6 @@
 module CipherStash
   class Index
-    # Implementation for the 'match' index type
+    # Implementation for the 'ore-match' index type
     #
     # @private
     class OreMatch < Index
