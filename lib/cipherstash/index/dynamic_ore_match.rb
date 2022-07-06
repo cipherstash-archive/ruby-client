@@ -1,9 +1,9 @@
 module CipherStash
   class Index
-    # Implementation for the 'match' index type
+    # Implementation of the dynamic-match index
     #
     # @private
-    class Match < Index
+    class DynamicOreMatch < Index
       INDEX_OPS = {
         "match" => -> (idx, s) do
           idx.text_processor.perform(s).map { |t| { indexId: idx.binid, exact: { term: [idx.ore_encrypt(t).to_s] } } }
@@ -16,9 +16,7 @@ module CipherStash
 
       def analyze(uuid, record)
         blid = blob_from_uuid(uuid)
-
-        field_names = @settings["mapping"]["fields"]
-        raw_terms = field_names.map { |n| nested_lookup(record, n) }.compact
+        raw_terms = collect_string_fields(record).map(&:last)
 
         if raw_terms == []
           nil
