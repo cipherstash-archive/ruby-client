@@ -97,4 +97,75 @@ describe CipherStash::Client do
       end
     end
   end
+
+  describe ".create_collection" do
+    before(:all) { create_fake_profile("default") }
+
+    let(:rpc) { instance_double("RPC") }
+    let(:rpc_class) { double(new: rpc) }
+    let(:client) { described_class.new(rpc_class: rpc_class) }
+
+    it "passes through name, metadata, and indexes to the RPC client" do
+      expect(rpc).to receive(:create_collection).with("empty", {:name=>"empty", :recordType=>{}}, [])
+
+      client.create_collection("empty", {})
+    end
+
+    [
+      ["match", "filter-match"],
+      ["filter-match", "filter-match"],
+      ["ore-match", "ore-match"],
+      ["dynamic-match", "dynamic-filter-match"],
+      ["dynamic-filter-match", "dynamic-filter-match"],
+      ["dynamic-ore-match", "dynamic-ore-match"],
+      ["field-dynamic-match", "field-dynamic-filter-match"],
+      ["field-dynamic-filter-match", "field-dynamic-filter-match"],
+      ["field-dynamic-ore-match", "field-dynamic-ore-match"],
+    ].each do |input_kind, expected_kind|
+      context "given a schema with a #{input_kind} index" do
+        def schema(kind)
+          mapping = {
+            "kind" => kind,
+            "tokenFilters" => [{"kind" => "downcase"}, {"kind" => "ngram", "tokenLength" => 3}],
+            "tokenizer" => {"kind" => "standard"}
+          }
+
+          if ["match", "ore-match", "filter-match"].include?(kind)
+            mapping["fields"] = ["title"]
+          end
+
+          {
+            "type" => {"title" => "string"},
+            "indexes" => {
+              "title" => mapping,
+            },
+          }
+        end
+
+        it "sets mapping fieldType to string in the RPC call" do
+          schema = schema(input_kind)
+
+          expect(rpc).to receive(:create_collection).with(
+            anything,
+            anything,
+            array_including(hash_including(mapping: hash_including("fieldType" => "string")))
+          )
+
+          client.create_collection("name", schema)
+        end
+
+        it "sets mapping kind to #{expected_kind} in the RPC call" do
+          schema = schema(input_kind)
+
+          expect(rpc).to receive(:create_collection).with(
+            anything,
+            anything,
+            array_including(hash_including(mapping: hash_including("kind" => expected_kind)))
+          )
+
+          client.create_collection("name", schema)
+        end
+      end
+    end
+  end
 end
