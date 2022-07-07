@@ -73,7 +73,7 @@ module CipherStash
     #
     # @raise [CipherStash::Client::Error::InvalidProfileError] if the profile, after being overridden by environment variables and constructor options, was not valid.
     #
-    def initialize(profileName: Unspecified, logger: Unspecified, metrics: Metrics::Null.new, **opts)
+    def initialize(profileName: Unspecified, logger: Unspecified, metrics: Metrics::Null.new, rpc_class: RPC,  **opts)
       @logger = if logger == Unspecified
                   Logger.new($stderr).tap { |l| l.level = Logger::WARN; l.formatter = ->(_, _, _, m) { "#{m}\n" } }
                 else
@@ -87,7 +87,7 @@ module CipherStash
       @profile = Profile.load(profileName == Unspecified ? nil : profileName, @logger, **opts)
       @metrics = metrics
       @metrics.created
-      @rpc = RPC.new(@profile, @logger, @metrics)
+      @rpc = rpc_class.new(@profile, @logger, @metrics)
     end
 
     # Load an existing collection from the data store by name.
@@ -161,10 +161,24 @@ module CipherStash
                 "fieldType" => case idx_settings["kind"]
                 when "exact", "range"
                   schema["type"][idx_settings["field"]]
-                when "match", "dynamic-match", "field-dynamic-match"
+                when "match", "dynamic-match", "field-dynamic-match",
+                     "ore-match", "dynamic-ore-match", "field-dynamic-ore-match",
+                     "filter-match", "dynamic-filter-match", "field-dynamic-filter-match"
                   "string"
                 else
                   raise Error::InvalidSchemaError, "Unknown index kind #{idx_settings["kind"]}"
+                end,
+                # New match, dynamic-match, and field-dynamic-match indexes should use filter indexes.
+                # ORE match indexes require specifically using a *-ore-match index.
+                "kind" => case idx_settings["kind"]
+                when "match"
+                  "filter-match"
+                when "dynamic-match"
+                  "dynamic-filter-match"
+                when "field-dynamic-match"
+                  "field-dynamic-filter-match"
+                else
+                  idx_settings["kind"]
                 end
               }
             ),
