@@ -77,7 +77,8 @@ module CipherStash
                 indexes: indexes.map do |idx|
                   {
                     id: blob_from_uuid(idx[:meta]["$indexId"]),
-                    settings: encrypt_blob(idx.to_cbor, "createCollection")
+                    settings: encrypt_blob(idx.to_cbor, "createCollection"),
+                    type: index_type(idx[:mapping]["kind"]),
                   }
                 end
               )
@@ -100,7 +101,8 @@ module CipherStash
                 indexes: indexes.map do |idx|
                   {
                     id: blob_from_uuid(idx[:meta]["$indexId"]),
-                    settings: encrypt_blob(idx.to_cbor, "migrateCollection")
+                    settings: encrypt_blob(idx.to_cbor, "migrateCollection"),
+                    type: index_type(idx[:mapping]["kind"]),
                   }
                 end,
                 fromSchemaVersion: from_schema_version
@@ -417,6 +419,17 @@ module CipherStash
           else
             raise Error::InternalError, "Oops, got an error we don't properly handle: #{res.error}"
           end
+        end
+      end
+
+      def index_type(mapping_kind)
+        case mapping_kind
+        when "filter-match", "dynamic-filter-match", "field-dynamic-filter-match"
+          :Filter
+        else
+          # Existing match, dynamic-match, and field-dynamic-match indexes will continue to use ORE
+          # for backwards compatibility. Exact and range indexes also use ORE.
+          :Ore
         end
       end
     end
