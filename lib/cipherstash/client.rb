@@ -153,6 +153,7 @@ module CipherStash
             meta: {
               "$indexId" => SecureRandom.uuid,
               "$indexName" => idx_name,
+              # TODO: we don't need two keys for filter indexes
               "$prfKey" => SecureRandom.hex(16),
               "$prpKey" => SecureRandom.hex(16),
             },
