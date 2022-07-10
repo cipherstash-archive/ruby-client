@@ -6,7 +6,14 @@ module CipherStash
       class DynamicFilterMatch < Index
         INDEX_OPS = {
           "match" => -> (idx, s) do
-            idx.text_processor.perform(s).map { |t| { indexId: idx.binid, exact: { term: [idx.ore_encrypt(t).to_s] } } }
+            filter = BloomFilter.new([meta_settings["$prfKey"]].pack("H*"))
+
+            bits = idx.text_processor.perform(s)
+              .map { |t| ore_encrypt(t).to_s }
+              .reduce(filter) { |filter, term| filter.add(term) }
+              .bits # TODO: should bits be a list rather than set?
+
+            { indexId: idx.binid, filter: { bits: bits } }
           end,
         }
 
@@ -21,8 +28,16 @@ module CipherStash
           if raw_terms == []
             nil
           else
-            terms = raw_terms.map { |s| text_processor.perform(s) }.flatten.uniq
-            { indexId: binid, terms: terms.map { |t| { term: [ore_encrypt(t).to_s], link: blid } } }
+            filter = BloomFilter.new([meta_settings["$prfKey"]].pack("H*"))
+            bits = raw_terms
+              .map { |s| text_processor.perform(s) }
+              .flatten
+              .uniq
+              .map { |t| ore_encrypt(t).to_s }
+              .reduce(filter) { |filter, term| filter.add(term) }
+              .bits # TODO: should bits be a list rather than set?
+
+              { indexId: binid, terms: { bits: bits, link: blid } }
           end
         end
       end
