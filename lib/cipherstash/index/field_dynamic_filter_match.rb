@@ -7,12 +7,11 @@ module CipherStash
       # @private
       class FieldDynamicFilterMatch < Index
         INDEX_OPS = {
-          "match" => -> (idx, f, s) do
-            filter = BloomFilter.new([idx.meta_settings["$prfKey"]].pack("H*"))
+          "match" => -> (idx, field, s) do
+            filter = BloomFilter.new([idx.meta_settings["$filterKey"]].pack("H*"))
 
             bits = idx.text_processor.perform(s)
-              .map { |t| idx.ore_encrypt("#{f}:#{t}").to_s }
-              .reduce(filter) { |filter, term| filter.add(term) }
+              .reduce(filter) { |filter, term| filter.add("#{field}:#{term}") }
               .bits
               .to_a
 
@@ -33,7 +32,6 @@ module CipherStash
               .map { |f, s| text_processor.perform(s).map { |b| "#{f}:#{b}" } }
               .flatten
               .uniq
-              .map { |t| ore_encrypt(t).to_s }
               .reduce(filter) { |filter, term| filter.add(term) }
               .bits
               .to_a
