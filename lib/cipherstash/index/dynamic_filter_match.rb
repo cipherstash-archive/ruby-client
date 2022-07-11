@@ -8,7 +8,10 @@ module CipherStash
       class DynamicFilterMatch < Index
         INDEX_OPS = {
           "match" => -> (idx, s) do
-            filter = BloomFilter.new([idx.meta_settings["$filterKey"]].pack("H*"))
+            filter = BloomFilter.new(
+              [idx.meta_settings["$filterKey"]].pack("H*"),
+              idx.mapping_settings
+            )
 
             bits = idx.text_processor.perform(s)
               .reduce(filter) { |filter, term| filter.add(term) }

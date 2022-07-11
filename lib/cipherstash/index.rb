@@ -53,6 +53,11 @@ module CipherStash
       @settings["meta"]
     end
 
+    # @return [Hash] the contents of the 'mapping' section of the index's settings
+    def mapping_settings
+      @setting["mapping"]
+    end
+
     # @return [Integer] the first (earliest) version of the collection schema in which this index appears
     attr_reader :first_schema_version
 

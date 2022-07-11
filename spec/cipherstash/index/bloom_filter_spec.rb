@@ -12,17 +12,37 @@ describe CipherStash::Index::BloomFilter do
       filter = described_class.new(key)
       expect(filter.bits).to eq(Set.new())
     end
+
+    it "provides a default for filter_size" do
+      filter = described_class.new(key)
+      expect(filter.filter_size).to eq(256)
+    end
+
+    it "allows filterSize opt" do
+      filter = described_class.new(key, {"filterSize" => 512})
+      expect(filter.filter_size).to eq(512)
+    end
+
+    it "provides a default for filter_term_bits" do
+      filter = described_class.new(key)
+      expect(filter.filter_term_bits).to eq(3)
+    end
+
+    it "allows filterTermBits opt" do
+      filter = described_class.new(key, {"filterTermBits" => 16})
+      expect(filter.filter_term_bits).to eq(16)
+    end
   end
 
   describe "#add" do
-    # In practice there will be 1 to k entries. Less than k entries will be in the set
-    # in the case that any of the first k bytes of the HMAC have the same value.
-    it "adds k entries to bits" do
+    # In practice there will be 1 to filter_term_bits entries. Less than filter_term_bits entries will be in the set
+    # in the case that any of the first filter_term_bits slices of the HMAC have the same value.
+    it "adds filter_term_bits entries to bits" do
       filter = described_class.new(key)
 
       filter.add("yes")
 
-      expect(filter.bits.length).to eq(filter.k)
+      expect(filter.bits.length).to eq(filter.filter_term_bits)
     end
 
     it "returns the bloom filter instance" do
