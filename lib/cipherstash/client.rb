@@ -150,13 +150,7 @@ module CipherStash
 
         indexes = schema.fetch("indexes", {}).map do |idx_name, idx_settings|
           {
-            meta: {
-              "$indexId" => SecureRandom.uuid,
-              "$indexName" => idx_name,
-              # TODO: we don't need two keys for filter indexes
-              "$prfKey" => SecureRandom.hex(16),
-              "$prpKey" => SecureRandom.hex(16),
-            },
+            meta: index_meta(idx_settings["kind"], idx_name),
             mapping: idx_settings.merge(
               {
                 "fieldType" => case idx_settings["kind"]
@@ -282,6 +276,25 @@ module CipherStash
       end
 
       @rpc.migrate_collection(name, new_metadata, new_indexes, current_collection.current_schema_version)
+    end
+
+    def index_meta(kind, name)
+      case kind
+      when "match", "dynamic-match", "field-dynamic-match",
+        "filter-match", "dynamic-filter-match", "field-dynamic-filter-match"
+        {
+          "$indexId" => SecureRandom.uuid,
+          "$indexName" => name,
+          "$filterKey" =>  SecureRandom.hex(16),
+        }
+      else
+        {
+          "$indexId" => SecureRandom.uuid,
+          "$indexName" => name,
+          "$prfKey" => SecureRandom.hex(16),
+          "$prpKey" => SecureRandom.hex(16),
+        }
+      end
     end
   end
 end

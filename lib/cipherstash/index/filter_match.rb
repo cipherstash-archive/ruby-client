@@ -8,10 +8,9 @@ module CipherStash
       class FilterMatch < Index
         INDEX_OPS = {
           "match" => -> (idx, s) do
-            filter = BloomFilter.new([idx.meta_settings["$prfKey"]].pack("H*"))
+            filter = BloomFilter.new([idx.meta_settings["$filterKey"]].pack("H*"))
 
             bits = idx.text_processor.perform(s)
-              .map { |t| idx.ore_encrypt(t).to_s }
               .reduce(filter) { |filter, term| filter.add(term) }
               .bits
               .to_a
@@ -38,7 +37,6 @@ module CipherStash
               .map { |s| text_processor.perform(s) }
               .flatten
               .uniq
-              .map { |t| ore_encrypt(t).to_s }
               .reduce(filter) { |filter, term| filter.add(term) }
               .bits
               .to_a
