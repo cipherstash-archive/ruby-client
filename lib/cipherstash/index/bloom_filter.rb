@@ -13,7 +13,7 @@ module CipherStash
       end
 
       def add(term)
-        hash = OpenSSL::HMAC.hexdigest("SHA256", @key, term)
+        hash = OpenSSL::HMAC.digest("SHA256", @key, term)
 
         hash.bytes[0...@k].each do |bit|
           @bits.add(bit)
