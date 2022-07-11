@@ -1,3 +1,5 @@
+require_relative "./bloom_filter"
+
 module CipherStash
     class Index
       # Implementation for the 'filter-match' index type
@@ -6,12 +8,13 @@ module CipherStash
       class FilterMatch < Index
         INDEX_OPS = {
           "match" => -> (idx, s) do
-            filter = BloomFilter.new([meta_settings["$prfKey"]].pack("H*"))
+            filter = BloomFilter.new([idx.meta_settings["$prfKey"]].pack("H*"))
 
             bits = idx.text_processor.perform(s)
-              .map { |t| ore_encrypt(t).to_s }
+              .map { |t| idx.ore_encrypt(t).to_s }
               .reduce(filter) { |filter, term| filter.add(term) }
-              .bits # TODO: should bits be a list rather than set?
+              .bits
+              .to_a
 
             { indexId: idx.binid, filter: { bits: bits } }
           end,
@@ -37,9 +40,10 @@ module CipherStash
               .uniq
               .map { |t| ore_encrypt(t).to_s }
               .reduce(filter) { |filter, term| filter.add(term) }
-              .bits # TODO: should bits be a list rather than set?
+              .bits
+              .to_a
 
-            { indexId: binid, terms: { bits: bits, link: blid } }
+            { indexId: binid, terms: [{ bits: bits, link: blid }] }
           end
         end
       end
