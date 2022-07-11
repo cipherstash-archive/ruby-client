@@ -24,6 +24,14 @@ describe CipherStash::Index::BloomFilter do
 
       expect(filter.bits.length).to eq(filter.k)
     end
+
+    it "returns the bloom filter instance" do
+      filter = described_class.new(key)
+
+      result = filter.add("yes")
+
+      expect(result).to be(filter)
+    end
   end
 
   describe "#subset?" do

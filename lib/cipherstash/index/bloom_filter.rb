@@ -18,6 +18,8 @@ module CipherStash
         hash.bytes[0...@k].each do |bit|
           @bits.add(bit)
         end
+
+        self
       end
 
       def subset?(other)
