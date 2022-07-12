@@ -62,6 +62,10 @@ module CipherStash
     # @option logger [Logger] specify a custom logger.
     #   If not provided, only warnings and errors will be printed to `stderr`.
     #
+    # @option rpc_class [Object] a class to use in place of CipherStash::Client::RPC.
+    #   This option is used internally for unit testing and is not intended for regular usage.
+    #   Defaults to CipherStash::Client::RPC.
+    #
     # @option metrics [CipherStash::Client::Metrics] somewhere to collect metrics about this client's operation.
     #   If not provided, no metrics will be collected.
     #   For more information on metrics and how they work, see the documentation for CipherStash::Client::Metrics.
