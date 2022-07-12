@@ -25,7 +25,7 @@ describe CipherStash::Index::BloomFilter do
       end
     end
 
-    [0, 2, 64, 127, 513, 131072].each do |n|
+    [0, 2, 16, 31, 513, 131072].each do |n|
       it "raises given invalid filterSize #{n}" do
         expect {
           described_class.new(key, {"filterSize" => n})
@@ -107,16 +107,15 @@ describe CipherStash::Index::BloomFilter do
           filter_b = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
           filter_c = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
 
-          filter_a.add("c")
-          filter_a.add("d")
+          filter_a.add("a")
+          filter_a.add("b")
 
           filter_b.add("a")
           filter_b.add("b")
           filter_b.add("c")
-          filter_b.add("d")
-          filter_b.add("e")
 
-          filter_c.add("f")
+          filter_c.add("d")
+          filter_c.add("e")
 
           expect(filter_a).to be_subset(filter_b)
           expect(filter_c).not_to be_subset(filter_b)
