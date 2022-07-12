@@ -12,6 +12,7 @@ require_relative "./index/field_dynamic_exact"
 require_relative "./index/filter_match"
 require_relative "./index/dynamic_filter_match"
 require_relative "./index/field_dynamic_filter_match"
+require_relative "./client/error"
 
 module CipherStash
   # Represents an index on a CipherStash collection.
@@ -41,7 +42,7 @@ module CipherStash
       when "field-dynamic-filter-match"
         FieldDynamicFilterMatch.new(id, settings, schema_versions)
       else
-        raise Error::InvalidSchemaError, "Unknown index kind #{settings["mapping"]["kind"].inspect}"
+        raise ::CipherStash::Client::Error::InvalidSchemaError, "Unknown index kind #{settings["mapping"]["kind"].inspect}"
       end
     end
 

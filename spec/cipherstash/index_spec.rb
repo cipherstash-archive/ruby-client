@@ -142,5 +142,15 @@ describe CipherStash::Index do
         expect(index).to be_an_instance_of(CipherStash::Index::FieldDynamicFilterMatch)
       end
     end
+
+    context "given an invalid kind" do
+      it "raises an InvalidSchemaError" do
+        settings = {"mapping" => {"kind" => "invalid"}}
+
+        expect {
+          described_class.generate(id, settings, schema_versions)
+        }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, 'Unknown index kind "invalid"')
+      end
+    end
   end
 end
