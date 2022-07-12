@@ -100,20 +100,24 @@ describe CipherStash::Index::BloomFilter do
       expect(filter_a).not_to be_subset(filter_b)
     end
 
-    it "returns true when the other filter is a subset and filters have multiple entries" do
-      filter_a = described_class.new(key)
-      filter_b = described_class.new(key)
+    [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
+      .product((3..16).to_a)
+      .each do |filter_size, filter_term_bits|
+        it "works for filterSize=#{filter_size} and filterTermBits=#{filter_term_bits}" do
+          filter_a = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
+          filter_b = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
 
-      filter_a.add("c")
-      filter_a.add("d")
+          filter_a.add("c")
+          filter_a.add("d")
 
-      filter_b.add("a")
-      filter_b.add("b")
-      filter_b.add("c")
-      filter_b.add("d")
-      filter_b.add("e")
+          filter_b.add("a")
+          filter_b.add("b")
+          filter_b.add("c")
+          filter_b.add("d")
+          filter_b.add("e")
 
-      expect(filter_a).to be_subset(filter_b)
-    end
+          expect(filter_a).to be_subset(filter_b)
+        end
+      end
   end
 end
