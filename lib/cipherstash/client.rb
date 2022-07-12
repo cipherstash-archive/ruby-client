@@ -77,7 +77,7 @@ module CipherStash
     #
     # @raise [CipherStash::Client::Error::InvalidProfileError] if the profile, after being overridden by environment variables and constructor options, was not valid.
     #
-    def initialize(profileName: Unspecified, logger: Unspecified, metrics: Metrics::Null.new, rpc_class: RPC,  **opts)
+    def initialize(profileName: Unspecified, logger: Unspecified, metrics: Metrics::Null.new, rpc_class: RPC, **opts)
       @logger = if logger == Unspecified
                   Logger.new($stderr).tap { |l| l.level = Logger::WARN; l.formatter = ->(_, _, _, m) { "#{m}\n" } }
                 else
