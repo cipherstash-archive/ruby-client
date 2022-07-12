@@ -42,7 +42,7 @@ module CipherStash
       when "field-dynamic-filter-match"
         FieldDynamicFilterMatch.new(id, settings, schema_versions)
       else
-        raise ::CipherStash::Client::Error::InvalidSchemaError, "Unknown index kind #{settings["mapping"]["kind"].inspect}"
+        raise Client::Error::InvalidSchemaError, "Unknown index kind #{settings["mapping"]["kind"].inspect}"
       end
     end
 
