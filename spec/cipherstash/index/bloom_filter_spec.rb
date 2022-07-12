@@ -18,8 +18,7 @@ describe CipherStash::Index::BloomFilter do
       expect(filter.filter_size).to eq(256)
     end
 
-    # Powers of 2 from 128 to 65536
-    [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536].each do |n|
+    described_class::VALID_FILTER_SIZES.each do |n|
       it "allows #{n} as a value for filterSize" do
         filter = described_class.new(key, {"filterSize" => n})
         expect(filter.filter_size).to eq(n)
@@ -100,12 +99,13 @@ describe CipherStash::Index::BloomFilter do
       expect(filter_a).not_to be_subset(filter_b)
     end
 
-    [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
-      .product((3..16).to_a)
+    described_class::VALID_FILTER_SIZES
+      .product((described_class::FILTER_TERM_BITS_MIN..described_class::FILTER_TERM_BITS_MAX).to_a)
       .each do |filter_size, filter_term_bits|
         it "works for filterSize=#{filter_size} and filterTermBits=#{filter_term_bits}" do
           filter_a = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
           filter_b = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
+          filter_c = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
 
           filter_a.add("c")
           filter_a.add("d")
@@ -116,7 +116,10 @@ describe CipherStash::Index::BloomFilter do
           filter_b.add("d")
           filter_b.add("e")
 
+          filter_c.add("f")
+
           expect(filter_a).to be_subset(filter_b)
+          expect(filter_c).not_to be_subset(filter_b)
         end
       end
   end
