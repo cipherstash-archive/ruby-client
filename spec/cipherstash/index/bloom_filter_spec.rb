@@ -13,24 +13,49 @@ describe CipherStash::Index::BloomFilter do
       expect(filter.bits).to eq(Set.new())
     end
 
-    it "provides a default for filter_size" do
+    it "provides a default for filterSize" do
       filter = described_class.new(key)
       expect(filter.filter_size).to eq(256)
     end
 
-    it "allows filterSize opt" do
-      filter = described_class.new(key, {"filterSize" => 512})
-      expect(filter.filter_size).to eq(512)
+    # Powers of 2 from 128 to 65536
+    [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536].each do |n|
+      it "allows #{n} as a value for filterSize" do
+        filter = described_class.new(key, {"filterSize" => n})
+        expect(filter.filter_size).to eq(n)
+      end
     end
 
-    it "provides a default for filter_term_bits" do
+    [0, 2, 64, 127, 513, 131072].each do |n|
+      it "raises given invalid filterSize #{n}" do
+        expect {
+          described_class.new(key, {"filterSize" => n})
+        }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterSize must be a power of 2 between 128 and 65536")
+      end
+    end
+
+    it "provides a default for filterTermBits" do
       filter = described_class.new(key)
       expect(filter.filter_term_bits).to eq(3)
     end
 
-    it "allows filterTermBits opt" do
-      filter = described_class.new(key, {"filterTermBits" => 16})
-      expect(filter.filter_term_bits).to eq(16)
+    (3..16).each do |n|
+      it "allows #{n} as a value for filterTermBits" do
+        filter = described_class.new(key, {"filterTermBits" => n})
+        expect(filter.filter_term_bits).to eq(n)
+      end
+    end
+
+    it "raises when filterTermBits is < 3" do
+      expect {
+        described_class.new(key, {"filterTermBits" => 2})
+      }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterTermBits must be between 3 and 16")
+    end
+
+    it "raises when filterTermBits is > 16" do
+      expect {
+        described_class.new(key, {"filterTermBits" => 17})
+      }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterTermBits must be between 3 and 16")
     end
   end
 
