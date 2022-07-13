@@ -289,7 +289,7 @@ module CipherStash
         {
           "$indexId" => SecureRandom.uuid,
           "$indexName" => name,
-          "$filterKey" =>  SecureRandom.hex(16),
+          "$filterKey" =>  SecureRandom.hex(32),
         }
       else
         {
