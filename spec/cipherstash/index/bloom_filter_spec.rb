@@ -122,19 +122,27 @@ describe CipherStash::Index::BloomFilter do
           filter_a = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
           filter_b = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
           filter_c = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
+          filter_d = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
 
           filter_a.add("a")
           filter_a.add("b")
+          filter_a.add("c")
 
+          # subset of filter_a
           filter_b.add("a")
           filter_b.add("b")
-          filter_b.add("c")
 
+          # zero subset intersection with filter_a
           filter_c.add("d")
           filter_c.add("e")
 
-          expect(filter_a).to be_subset(filter_b)
-          expect(filter_c).not_to be_subset(filter_b)
+          # partial subset intersection with filter_a
+          filter_d.add("c")
+          filter_d.add("d")
+
+          expect(filter_b).to be_subset(filter_a)
+          expect(filter_c).not_to be_subset(filter_a)
+          expect(filter_d).not_to be_subset(filter_a)
         end
       end
   end
