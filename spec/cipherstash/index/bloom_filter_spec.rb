@@ -29,7 +29,7 @@ describe CipherStash::Index::BloomFilter do
       it "raises given invalid filterSize #{n}" do
         expect {
           described_class.new(key, {"filterSize" => n})
-        }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterSize must be a power of 2 between 128 and 65536")
+        }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterSize must be a power of 2 between 32 and 65536")
       end
     end
 

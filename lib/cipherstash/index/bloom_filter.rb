@@ -50,7 +50,7 @@ module CipherStash
         @filter_size = opts["filterSize"] || FILTER_SIZE_DEFAULT
 
         unless VALID_FILTER_SIZES.include?(@filter_size)
-          raise ::CipherStash::Client::Error::InvalidSchemaError, "filterSize must be a power of 2 between 128 and 65536"
+          raise ::CipherStash::Client::Error::InvalidSchemaError, "filterSize must be a power of 2 between 32 and 65536"
         end
 
         @filter_term_bits = opts["filterTermBits"] || FILTER_TERM_BITS_DEFAULT
