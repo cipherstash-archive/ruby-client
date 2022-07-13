@@ -77,12 +77,39 @@ describe CipherStash::Index::BloomFilter do
   describe "#add" do
     # In practice there will be 1 to filter_term_bits entries. Less than filter_term_bits entries will be in the set
     # in the case that any of the first filter_term_bits slices of the HMAC have the same value.
-    it "adds filter_term_bits entries to bits for each term" do
+    it "adds filter_term_bits entries to bits for a single term when there are no hash collisions" do
       filter = described_class.new(key)
 
+      # A term that's known to not have collisions in the first k slices for the test key
       filter.add(["yes"])
 
       expect(filter.bits.length).to eq(filter.filter_term_bits)
+    end
+
+    (described_class::FILTER_TERM_BITS_MIN..described_class::FILTER_TERM_BITS_MAX).each do |k|
+      it "adds at most #{k} entries to bits for a single term when k=#{k}" do
+        filter = described_class.new(key, {"filterTermBits" => k})
+        random_term = SecureRandom.base64(3)
+
+        filter.add([random_term])
+
+        expect(filter.filter_term_bits).to eq(k)
+        expect(filter.bits.length).to be > 0
+        expect(filter.bits.length).to be <= filter.filter_term_bits
+      end
+    end
+
+    described_class::VALID_FILTER_SIZES.each do |m|
+      it "adds bit positions with a max value of #{m} when m=#{m}" do
+        filter = described_class.new(key, {"filterSize" => m})
+        random_term = SecureRandom.base64(3)
+
+        filter.add([random_term])
+
+        expect(filter.filter_size).to eq(m)
+        expect(filter.bits.length).to be > 0
+        expect(filter.bits.all? { |b| b <= m }).to be(true), "expected all bit positions to be <= #{m}, got bits=#{filter.bits.inspect}"
+      end
     end
 
     it "returns the bloom filter instance" do
@@ -146,7 +173,7 @@ describe CipherStash::Index::BloomFilter do
     it "returns bits as an array" do
       filter = described_class.new(key).add(["a"])
 
-      expect(filter.to_a).to be_an(Array)
+      expect(filter.to_a).to be_instance_of(Array)
       expect(Set.new(filter.to_a)).to eq(filter.bits)
     end
 

@@ -93,11 +93,19 @@ module CipherStash
       def add_single_term(term)
         hash = OpenSSL::HMAC.digest("SHA256", @key, term)
 
-        (0..@filter_term_bits-1).map do |slice_idx|
-          slice = hash[2*slice_idx..2*slice_idx+1]
-          bit_position = slice.unpack("S<").first % @filter_size
+        (0..@filter_term_bits-1).map do |slice_index|
+          byte_slice = two_byte_slice(hash, slice_index)
+          bit_position = little_endian_uint16_from_byte_slice(byte_slice) % @filter_size
           @bits.add(bit_position)
         end
+      end
+
+      def two_byte_slice(bytes, index)
+        bytes[2*index..2*index+1]
+      end
+
+      def little_endian_uint16_from_byte_slice(byte_slice)
+        byte_slice.unpack("S<").first
       end
     end
   end
