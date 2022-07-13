@@ -49,13 +49,13 @@ module CipherStash
 
         @filter_size = opts["filterSize"] || FILTER_SIZE_DEFAULT
 
-        if not VALID_FILTER_SIZES.include?(@filter_size)
+        unless VALID_FILTER_SIZES.include?(@filter_size)
           raise ::CipherStash::Client::Error::InvalidSchemaError, "filterSize must be a power of 2 between 128 and 65536"
         end
 
         @filter_term_bits = opts["filterTermBits"] || FILTER_TERM_BITS_DEFAULT
 
-        if not (FILTER_TERM_BITS_MIN..FILTER_TERM_BITS_MAX).include?(@filter_term_bits)
+        unless (FILTER_TERM_BITS_MIN..FILTER_TERM_BITS_MAX).include?(@filter_term_bits)
           raise ::CipherStash::Client::Error::InvalidSchemaError, "filterTermBits must be between 3 and 16"
         end
       end
