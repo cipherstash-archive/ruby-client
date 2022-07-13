@@ -62,7 +62,7 @@ module CipherStash
 
       # Adds the given terms to the bloom filter and returns the filter instance.
       #
-      # @param term [Array<String>] the terms to add
+      # @param terms [Array<String>] the terms to add
       #
       # @return [CipherStash::Index::BloomFilter]
       def add(terms)
