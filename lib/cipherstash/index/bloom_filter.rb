@@ -32,14 +32,19 @@ module CipherStash
 
       # Creates a new bloom filter with the given key and filter match index settings.
       #
-      # @param key [String] the key to use for hashing terms.
+      # @param key [String] the key to use for hashing terms. Should be provided as a hex-encoded string.
       #
       # @param opts [Hash] the index settings.
       #   "filterSize" and "filterTermBits" are used to set the filter_size and filter_term_bits attrs.
       #
       # @raise [CipherStash::Client::Error::InvalidSchemaError] if an invalid "filterSize" or "filterTermBits" is given.
       def initialize(key, opts = {})
-        @key = key
+        @key = [key].pack("H*")
+
+        unless @key.length == 32
+          raise ::CipherStash::Client::Error::InternalError, "expected bloom filter key to have length=32, got length=#{@key.length}"
+        end
+
         @bits = Set.new()
 
         @filter_size = opts["filterSize"] || FILTER_SIZE_DEFAULT
