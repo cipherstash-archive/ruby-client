@@ -8,14 +8,10 @@ module CipherStash
       class FieldDynamicFilterMatch < Index
         INDEX_OPS = {
           "match" => -> (idx, field, s) do
-            filter = BloomFilter.new(idx.meta_settings["$filterKey"], idx.mapping_settings)
+            terms = idx.text_processor.perform(s).map { |term| "#{field}:#{term}" }
+            filter = BloomFilter.new(idx.meta_settings["$filterKey"], idx.mapping_settings).add(terms)
 
-            bits = idx.text_processor.perform(s)
-              .reduce(filter) { |filter, term| filter.add("#{field}:#{term}") }
-              .bits
-              .to_a
-
-            [{ indexId: idx.binid, filter: { bits: bits } }]
+            [{ indexId: idx.binid, filter: { bits: filter.to_a } }]
           end,
         }
 
@@ -27,17 +23,14 @@ module CipherStash
           if raw_terms == []
             nil
           else
-            filter = BloomFilter.new(meta_settings["$filterKey"], mapping_settings)
-
-            bits = raw_terms
+            terms = raw_terms
               .map { |f, s| text_processor.perform(s).map { |b| "#{f}:#{b}" } }
               .flatten
               .uniq
-              .reduce(filter) { |filter, term| filter.add(term) }
-              .bits
-              .to_a
 
-            { indexId: binid, terms: [{ bits: bits, link: blid }] }
+            filter = BloomFilter.new(meta_settings["$filterKey"], mapping_settings).add(terms)
+
+            { indexId: binid, terms: [{ bits: filter.to_a, link: blid }] }
           end
         end
       end

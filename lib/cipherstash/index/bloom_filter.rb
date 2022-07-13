@@ -60,20 +60,13 @@ module CipherStash
         end
       end
 
-      # Adds the given term to the bloom filter and returns the filter instance.
+      # Adds the given terms to the bloom filter and returns the filter instance.
       #
-      # @param term [String] the term to add
+      # @param term [Array<String>] the terms to add
       #
       # @return [CipherStash::Index::BloomFilter]
-      def add(term)
-        hash = OpenSSL::HMAC.digest("SHA256", @key, term)
-
-        (0..@filter_term_bits-1).map do |slice_idx|
-          slice = hash[2*slice_idx..2*slice_idx+1]
-          bit_position = slice.unpack("S<").first % @filter_size
-          @bits.add(bit_position)
-        end
-
+      def add(terms)
+        terms.each { |term| add_single_term(term) }
         self
       end
 
@@ -86,6 +79,25 @@ module CipherStash
       # @return [Boolean]
       def subset?(other)
         @bits.subset?(other.bits)
+      end
+
+      # Returns the "set" bits of the bloom filter as an array.
+      #
+      # @return [CipherStash::Index::BloomFilter]
+      def to_a
+        @bits.to_a
+      end
+
+      private
+
+      def add_single_term(term)
+        hash = OpenSSL::HMAC.digest("SHA256", @key, term)
+
+        (0..@filter_term_bits-1).map do |slice_idx|
+          slice = hash[2*slice_idx..2*slice_idx+1]
+          bit_position = slice.unpack("S<").first % @filter_size
+          @bits.add(bit_position)
+        end
       end
     end
   end

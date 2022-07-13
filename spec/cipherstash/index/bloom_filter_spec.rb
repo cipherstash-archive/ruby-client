@@ -77,10 +77,10 @@ describe CipherStash::Index::BloomFilter do
   describe "#add" do
     # In practice there will be 1 to filter_term_bits entries. Less than filter_term_bits entries will be in the set
     # in the case that any of the first filter_term_bits slices of the HMAC have the same value.
-    it "adds filter_term_bits entries to bits" do
+    it "adds filter_term_bits entries to bits for each term" do
       filter = described_class.new(key)
 
-      filter.add("yes")
+      filter.add(["yes"])
 
       expect(filter.bits.length).to eq(filter.filter_term_bits)
     end
@@ -88,7 +88,7 @@ describe CipherStash::Index::BloomFilter do
     it "returns the bloom filter instance" do
       filter = described_class.new(key)
 
-      result = filter.add("yes")
+      result = filter.add(["yes"])
 
       expect(result).to be(filter)
     end
@@ -99,8 +99,8 @@ describe CipherStash::Index::BloomFilter do
       filter_a = described_class.new(key)
       filter_b = described_class.new(key)
 
-      filter_a.add("yes")
-      filter_b.add("yes")
+      filter_a.add(["yes"])
+      filter_b.add(["yes"])
 
       expect(filter_a).to be_subset(filter_b)
     end
@@ -109,8 +109,8 @@ describe CipherStash::Index::BloomFilter do
       filter_a = described_class.new(key)
       filter_b = described_class.new(key)
 
-      filter_a.add("yes")
-      filter_b.add("ner")
+      filter_a.add(["yes"])
+      filter_b.add(["ner"])
 
       expect(filter_a).not_to be_subset(filter_b)
     end
@@ -124,26 +124,36 @@ describe CipherStash::Index::BloomFilter do
           filter_c = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
           filter_d = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
 
-          filter_a.add("a")
-          filter_a.add("b")
-          filter_a.add("c")
+          filter_a.add(%w(a b c))
 
           # subset of filter_a
-          filter_b.add("a")
-          filter_b.add("b")
+          filter_b.add(%w(a b))
 
           # zero subset intersection with filter_a
-          filter_c.add("d")
-          filter_c.add("e")
+          filter_c.add(%w(d e))
 
           # partial subset intersection with filter_a
-          filter_d.add("c")
-          filter_d.add("d")
+          filter_d.add(%w(c d))
 
           expect(filter_b).to be_subset(filter_a)
           expect(filter_c).not_to be_subset(filter_a)
           expect(filter_d).not_to be_subset(filter_a)
         end
       end
+  end
+
+  describe "#to_a" do
+    it "returns bits as an array" do
+      filter = described_class.new(key).add(["a"])
+
+      expect(filter.to_a).to be_an(Array)
+      expect(Set.new(filter.to_a)).to eq(filter.bits)
+    end
+
+    it "works when bits is empty" do
+      filter = described_class.new(key)
+
+      expect(filter.to_a).to eq([])
+    end
   end
 end
