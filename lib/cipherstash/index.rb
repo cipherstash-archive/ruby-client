@@ -56,7 +56,7 @@ module CipherStash
 
     # @return [Hash] the contents of the 'mapping' section of the index's settings
     def mapping_settings
-      @setting["mapping"]
+      @settings["mapping"]
     end
 
     # @return [Integer] the first (earliest) version of the collection schema in which this index appears

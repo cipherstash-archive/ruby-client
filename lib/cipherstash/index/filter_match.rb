@@ -8,17 +8,14 @@ module CipherStash
       class FilterMatch < Index
         INDEX_OPS = {
           "match" => -> (idx, s) do
-            filter = BloomFilter.new(
-              [idx.meta_settings["$filterKey"]].pack("H*"),
-              idx.mapping_settings
-            )
+            filter = BloomFilter.new(idx.meta_settings["$filterKey"], idx.mapping_settings)
 
             bits = idx.text_processor.perform(s)
               .reduce(filter) { |filter, term| filter.add(term) }
               .bits
               .to_a
 
-            { indexId: idx.binid, filter: { bits: bits } }
+            [{ indexId: idx.binid, filter: { bits: bits } }]
           end,
         }
 
@@ -35,7 +32,8 @@ module CipherStash
           if raw_terms == []
             nil
           else
-            filter = BloomFilter.new([meta_settings["$prfKey"]].pack("H*"))
+            filter = BloomFilter.new(meta_settings["$filterKey"], mapping_settings)
+
             bits = raw_terms
               .map { |s| text_processor.perform(s) }
               .flatten
