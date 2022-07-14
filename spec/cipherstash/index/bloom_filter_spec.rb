@@ -75,13 +75,24 @@ describe CipherStash::Index::BloomFilter do
   end
 
   describe "#add" do
+    it "accepts a single term or a list of terms" do
+      filter_a = described_class.new(key)
+      filter_b = described_class.new(key)
+
+      filter_a.add("abc")
+      filter_b.add(["abc"])
+
+      expect(filter_a.bits).not_to be_empty
+      expect(filter_a.bits).to eq(filter_b.bits)
+    end
+
     # In practice there will be 1 to k entries. Less than k entries will be in the set
     # in the case that any of the first k slices of the HMAC have the same value.
     it "adds k entries to bits for a single term when there are no hash collisions" do
       filter = described_class.new(key)
 
       # A term that's known to not have collisions in the first k slices for the test key
-      filter.add(["yes"])
+      filter.add("yes")
 
       expect(filter.bits.length).to eq(filter.k)
     end
@@ -91,7 +102,7 @@ describe CipherStash::Index::BloomFilter do
         filter = described_class.new(key, {"filterTermBits" => k})
         random_term = SecureRandom.base64(3)
 
-        filter.add([random_term])
+        filter.add(random_term)
 
         expect(filter.k).to eq(k)
         expect(filter.bits.length).to be > 0
@@ -104,7 +115,7 @@ describe CipherStash::Index::BloomFilter do
         filter = described_class.new(key, {"filterSize" => m})
         random_term = SecureRandom.base64(3)
 
-        filter.add([random_term])
+        filter.add(random_term)
 
         expect(filter.m).to eq(m)
         expect(filter.bits.length).to be > 0
@@ -115,7 +126,7 @@ describe CipherStash::Index::BloomFilter do
     it "returns the bloom filter instance" do
       filter = described_class.new(key)
 
-      result = filter.add(["yes"])
+      result = filter.add("yes")
 
       expect(result).to be(filter)
     end
@@ -126,8 +137,8 @@ describe CipherStash::Index::BloomFilter do
       filter_a = described_class.new(key)
       filter_b = described_class.new(key)
 
-      filter_a.add(["yes"])
-      filter_b.add(["yes"])
+      filter_a.add("yes")
+      filter_b.add("yes")
 
       expect(filter_a).to be_subset(filter_b)
     end
@@ -136,8 +147,8 @@ describe CipherStash::Index::BloomFilter do
       filter_a = described_class.new(key)
       filter_b = described_class.new(key)
 
-      filter_a.add(["yes"])
-      filter_b.add(["ner"])
+      filter_a.add("yes")
+      filter_b.add("ner")
 
       expect(filter_a).not_to be_subset(filter_b)
     end
@@ -171,7 +182,7 @@ describe CipherStash::Index::BloomFilter do
 
   describe "#to_a" do
     it "returns bits as an array" do
-      filter = described_class.new(key).add(["a"])
+      filter = described_class.new(key).add("a")
 
       expect(filter.to_a).to be_instance_of(Array)
       expect(Set.new(filter.to_a)).to eq(filter.bits)
