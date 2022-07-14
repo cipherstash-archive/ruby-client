@@ -15,13 +15,13 @@ describe CipherStash::Index::BloomFilter do
 
     it "provides a default for filterSize" do
       filter = described_class.new(key)
-      expect(filter.filter_size).to eq(256)
+      expect(filter.m).to eq(256)
     end
 
-    described_class::VALID_FILTER_SIZES.each do |n|
+    described_class::VALID_M_VALUES.each do |n|
       it "allows #{n} as a value for filterSize" do
         filter = described_class.new(key, {"filterSize" => n})
-        expect(filter.filter_size).to eq(n)
+        expect(filter.m).to eq(n)
       end
     end
 
@@ -35,13 +35,13 @@ describe CipherStash::Index::BloomFilter do
 
     it "provides a default for filterTermBits" do
       filter = described_class.new(key)
-      expect(filter.filter_term_bits).to eq(3)
+      expect(filter.k).to eq(3)
     end
 
     (3..16).each do |n|
       it "allows #{n} as a value for filterTermBits" do
         filter = described_class.new(key, {"filterTermBits" => n})
-        expect(filter.filter_term_bits).to eq(n)
+        expect(filter.k).to eq(n)
       end
     end
 
@@ -75,38 +75,38 @@ describe CipherStash::Index::BloomFilter do
   end
 
   describe "#add" do
-    # In practice there will be 1 to filter_term_bits entries. Less than filter_term_bits entries will be in the set
-    # in the case that any of the first filter_term_bits slices of the HMAC have the same value.
-    it "adds filter_term_bits entries to bits for a single term when there are no hash collisions" do
+    # In practice there will be 1 to k entries. Less than k entries will be in the set
+    # in the case that any of the first k slices of the HMAC have the same value.
+    it "adds k entries to bits for a single term when there are no hash collisions" do
       filter = described_class.new(key)
 
       # A term that's known to not have collisions in the first k slices for the test key
       filter.add(["yes"])
 
-      expect(filter.bits.length).to eq(filter.filter_term_bits)
+      expect(filter.bits.length).to eq(filter.k)
     end
 
-    (described_class::FILTER_TERM_BITS_MIN..described_class::FILTER_TERM_BITS_MAX).each do |k|
+    (described_class::K_MIN..described_class::K_MAX).each do |k|
       it "adds at most #{k} entries to bits for a single term when k=#{k}" do
         filter = described_class.new(key, {"filterTermBits" => k})
         random_term = SecureRandom.base64(3)
 
         filter.add([random_term])
 
-        expect(filter.filter_term_bits).to eq(k)
+        expect(filter.k).to eq(k)
         expect(filter.bits.length).to be > 0
-        expect(filter.bits.length).to be <= filter.filter_term_bits
+        expect(filter.bits.length).to be <= filter.k
       end
     end
 
-    described_class::VALID_FILTER_SIZES.each do |m|
+    described_class::VALID_M_VALUES.each do |m|
       it "adds bit positions with a max value of #{m} when m=#{m}" do
         filter = described_class.new(key, {"filterSize" => m})
         random_term = SecureRandom.base64(3)
 
         filter.add([random_term])
 
-        expect(filter.filter_size).to eq(m)
+        expect(filter.m).to eq(m)
         expect(filter.bits.length).to be > 0
         expect(filter.bits.all? { |b| b <= m }).to be(true), "expected all bit positions to be <= #{m}, got bits=#{filter.bits.inspect}"
       end
@@ -142,14 +142,14 @@ describe CipherStash::Index::BloomFilter do
       expect(filter_a).not_to be_subset(filter_b)
     end
 
-    described_class::VALID_FILTER_SIZES
-      .product((described_class::FILTER_TERM_BITS_MIN..described_class::FILTER_TERM_BITS_MAX).to_a)
-      .each do |filter_size, filter_term_bits|
-        it "works for filterSize=#{filter_size} and filterTermBits=#{filter_term_bits}" do
-          filter_a = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
-          filter_b = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
-          filter_c = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
-          filter_d = described_class.new(key, {"filterSize" => filter_size, "filterTermBits" => filter_term_bits})
+    described_class::VALID_M_VALUES
+      .product((described_class::K_MIN..described_class::K_MAX).to_a)
+      .each do |m, k|
+        it "works for filterSize=#{m} and filterTermBits=#{k}" do
+          filter_a = described_class.new(key, {"filterSize" => m, "filterTermBits" => k})
+          filter_b = described_class.new(key, {"filterSize" => m, "filterTermBits" => k})
+          filter_c = described_class.new(key, {"filterSize" => m, "filterTermBits" => k})
+          filter_d = described_class.new(key, {"filterSize" => m, "filterTermBits" => k})
 
           filter_a.add(%w(a b c))
 
