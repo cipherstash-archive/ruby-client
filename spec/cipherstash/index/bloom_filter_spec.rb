@@ -13,45 +13,45 @@ describe CipherStash::Index::BloomFilter do
       expect(filter.bits).to eq(Set.new())
     end
 
-    it "provides a default for filterSize" do
+    it "provides a default for m" do
       filter = described_class.new(key)
       expect(filter.m).to eq(256)
     end
 
-    described_class::VALID_M_VALUES.each do |n|
-      it "allows #{n} as a value for filterSize" do
-        filter = described_class.new(key, {"filterSize" => n})
-        expect(filter.m).to eq(n)
+    described_class::VALID_M_VALUES.each do |m|
+      it "allows #{m} as a value for m" do
+        filter = described_class.new(key, {"filterSize" => m})
+        expect(filter.m).to eq(m)
       end
     end
 
-    [0, 2, 16, 31, 513, 131072].each do |n|
-      it "raises given invalid filterSize #{n}" do
+    [0, 2, 16, 31, 513, 131072].each do |m|
+      it "raises given invalid m #{m}" do
         expect {
-          described_class.new(key, {"filterSize" => n})
+          described_class.new(key, {"filterSize" => m})
         }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterSize must be a power of 2 between 32 and 65536")
       end
     end
 
-    it "provides a default for filterTermBits" do
+    it "provides a default for k" do
       filter = described_class.new(key)
       expect(filter.k).to eq(3)
     end
 
-    (3..16).each do |n|
-      it "allows #{n} as a value for filterTermBits" do
-        filter = described_class.new(key, {"filterTermBits" => n})
-        expect(filter.k).to eq(n)
+    (3..16).each do |k|
+      it "allows #{k} as a value for k" do
+        filter = described_class.new(key, {"filterTermBits" => k})
+        expect(filter.k).to eq(k)
       end
     end
 
-    it "raises when filterTermBits is < 3" do
+    it "raises when k is < 3" do
       expect {
         described_class.new(key, {"filterTermBits" => 2})
       }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterTermBits must be between 3 and 16")
     end
 
-    it "raises when filterTermBits is > 16" do
+    it "raises when k is > 16" do
       expect {
         described_class.new(key, {"filterTermBits" => 17})
       }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterTermBits must be between 3 and 16")
@@ -145,7 +145,7 @@ describe CipherStash::Index::BloomFilter do
     described_class::VALID_M_VALUES
       .product((described_class::K_MIN..described_class::K_MAX).to_a)
       .each do |m, k|
-        it "works for filterSize=#{m} and filterTermBits=#{k}" do
+        it "works for m=#{m} and k=#{k}" do
           filter_a = described_class.new(key, {"filterSize" => m, "filterTermBits" => k})
           filter_b = described_class.new(key, {"filterSize" => m, "filterTermBits" => k})
           filter_c = described_class.new(key, {"filterSize" => m, "filterTermBits" => k})
