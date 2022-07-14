@@ -6,36 +6,37 @@ module CipherStash
     #
     # @private
     class BloomFilter
-      FILTER_TERM_BITS_MIN = 3
-      FILTER_TERM_BITS_MAX = 16
-      FILTER_TERM_BITS_DEFAULT = 3
-      FILTER_SIZE_DEFAULT = 256
-      VALID_FILTER_SIZES = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
+      K_MIN = 3
+      K_MAX = 16
+      K_DEFAULT = 3
+      M_DEFAULT = 256
+      VALID_M_VALUES = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
 
       # The "set" bits of the bloom filter
       attr_reader :bits
 
-      # The size of the bloom filter in bits. Commonly referred to as "m". Since we only keep track of the set bits, the filter
+      # The size of the bloom filter in bits. Same as "filterSize" in the public docs. Since we only keep track of the set bits, the filter
       # size determines the maximum value of the positions stored in the bits attr.
       #
       # Valid values are powers of 2 from 32 to 65536.
       #
       # @return [Integer]
-      attr_reader :filter_size
+      attr_reader :m
 
-      # The number of bits to set per term. Commonly referred to as "k".
+      # The number of hash functions applied to each term. Same as "filterTermBits" in the public docs. Implemented as k slices of a single
+      # hash.
       #
       # Valid values are integers from 3 to 16.
       #
       # @return [Integer]
-      attr_reader :filter_term_bits
+      attr_reader :k
 
       # Creates a new bloom filter with the given key and filter match index settings.
       #
       # @param key [String] the key to use for hashing terms. Should be provided as a hex-encoded string.
       #
       # @param opts [Hash] the index settings.
-      #   "filterSize" and "filterTermBits" are used to set the filter_size and filter_term_bits attrs.
+      #   "filterSize" and "filterTermBits" are used to set the m and k attrs respectively.
       #
       # @raise [CipherStash::Client::Error::InvalidSchemaError] if an invalid "filterSize" or "filterTermBits" is given.
       def initialize(key, opts = {})
@@ -47,15 +48,15 @@ module CipherStash
 
         @bits = Set.new()
 
-        @filter_size = opts["filterSize"] || FILTER_SIZE_DEFAULT
+        @m = opts["filterSize"] || M_DEFAULT
 
-        unless VALID_FILTER_SIZES.include?(@filter_size)
+        unless VALID_M_VALUES.include?(@m)
           raise ::CipherStash::Client::Error::InvalidSchemaError, "filterSize must be a power of 2 between 32 and 65536"
         end
 
-        @filter_term_bits = opts["filterTermBits"] || FILTER_TERM_BITS_DEFAULT
+        @k = opts["filterTermBits"] || K_DEFAULT
 
-        unless (FILTER_TERM_BITS_MIN..FILTER_TERM_BITS_MAX).include?(@filter_term_bits)
+        unless (K_MIN..K_MAX).include?(@k)
           raise ::CipherStash::Client::Error::InvalidSchemaError, "filterTermBits must be between 3 and 16"
         end
       end
@@ -93,9 +94,9 @@ module CipherStash
       def add_single_term(term)
         hash = OpenSSL::HMAC.digest("SHA256", @key, term)
 
-        (0..@filter_term_bits-1).map do |slice_index|
+        (0..@k-1).map do |slice_index|
           byte_slice = two_byte_slice(hash, slice_index)
-          bit_position = little_endian_uint16_from_byte_slice(byte_slice) % @filter_size
+          bit_position = little_endian_uint16_from_byte_slice(byte_slice) % @m
           @bits.add(bit_position)
         end
       end
