@@ -15,16 +15,18 @@ module CipherStash
       # The "set" bits of the bloom filter
       attr_reader :bits
 
-      # The size of the bloom filter in bits. Same as "filterSize" in the public docs. Since we only keep track of the set bits, the filter
-      # size determines the maximum value of the positions stored in the bits attr.
+      # The size of the bloom filter in bits. Same as "filterSize" in the schema mapping and public docs.
+      #
+      #Since we only keep track of the set bits, the filter size determines the maximum value of the positions stored in the bits attr.
       #
       # Valid values are powers of 2 from 32 to 65536.
       #
       # @return [Integer]
       attr_reader :m
 
-      # The number of hash functions applied to each term. Same as "filterTermBits" in the public docs. Implemented as k slices of a single
-      # hash.
+      # The number of hash functions applied to each term. Same as "filterTermBits" in the schema mapping and public docs.
+      #
+      # Implemented as k slices of a single hash.
       #
       # Valid values are integers from 3 to 16.
       #
