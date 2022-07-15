@@ -59,8 +59,8 @@ module CipherStash
 
         @k = opts.fetch("filterTermBits", K_DEFAULT)
 
-        unless (K_MIN..K_MAX).include?(@k)
-          raise ::CipherStash::Client::Error::InvalidSchemaError, "filterTermBits must be between 3 and 16 (got #{@k.inspect})"
+        unless (K_MIN..K_MAX).to_a.include?(@k)
+          raise ::CipherStash::Client::Error::InvalidSchemaError, "filterTermBits must be an integer between 3 and 16 (got #{@k.inspect})"
         end
       end
 
