@@ -56,7 +56,7 @@ module CipherStash
           raise ::CipherStash::Client::Error::InvalidSchemaError, "filterSize must be a power of 2 between 32 and 65536"
         end
 
-        @k = opts["filterTermBits"] || K_DEFAULT
+        @k = opts.fetch("filterTermBits", K_DEFAULT)
 
         unless (K_MIN..K_MAX).include?(@k)
           raise ::CipherStash::Client::Error::InvalidSchemaError, "filterTermBits must be between 3 and 16"
