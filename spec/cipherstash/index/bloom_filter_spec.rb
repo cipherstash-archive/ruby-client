@@ -25,11 +25,11 @@ describe CipherStash::Index::BloomFilter do
       end
     end
 
-    [0, 2, 16, 31, 513, 131072].each do |m|
-      it "raises given invalid m #{m}" do
+    [0, 2, 16, 31, 513, 131072, "256", "ohai", nil, { foo: "bar" }, Object.new].each do |m|
+      it "raises given invalid m of #{m.inspect}" do
         expect {
           described_class.new(key, {"filterSize" => m})
-        }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterSize must be a power of 2 between 32 and 65536")
+        }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterSize must be a power of 2 between 32 and 65536 (got #{m.inspect})")
       end
     end
 
@@ -48,13 +48,13 @@ describe CipherStash::Index::BloomFilter do
     it "raises when k is < 3" do
       expect {
         described_class.new(key, {"filterTermBits" => 2})
-      }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterTermBits must be between 3 and 16")
+      }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterTermBits must be between 3 and 16 (got 2)")
     end
 
     it "raises when k is > 16" do
       expect {
         described_class.new(key, {"filterTermBits" => 17})
-      }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterTermBits must be between 3 and 16")
+      }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, "filterTermBits must be between 3 and 16 (got 17)")
     end
 
     it "raises when the key is too short" do
