@@ -50,7 +50,7 @@ module CipherStash
 
         @bits = Set.new()
 
-        @m = opts["filterSize"] || M_DEFAULT
+        @m = opts.fetch("filterSize", M_DEFAULT)
 
         unless VALID_M_VALUES.include?(@m)
           raise ::CipherStash::Client::Error::InvalidSchemaError, "filterSize must be a power of 2 between 32 and 65536"
