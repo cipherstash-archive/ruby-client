@@ -76,8 +76,6 @@ module CipherStash
 
       # Returns true if the bloom filter is a subset of the other bloom filter and returns false otherwise.
       #
-      # Can give false positives.
-      #
       # @param other [CipherStash::Index::BloomFilter] the other bloom filter to check against.
       #
       # @return [Boolean]
