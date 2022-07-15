@@ -80,6 +80,22 @@ describe CipherStash::Index::BloomFilter do
         described_class.new(key)
       }.to raise_error(::CipherStash::Client::Error::InternalError, "expected bloom filter key to have length=32, got length=0")
     end
+
+    it "raises when the key is not a hex string" do
+      key = "ZZZ"
+
+      expect {
+        described_class.new(key)
+      }.to raise_error(::CipherStash::Client::Error::InternalError, 'expected bloom filter key to be a hex-encoded string (got "ZZZ")')
+    end
+
+    [3.5, 4, nil, { foo: "bar" }, Object.new].each do |key|
+      it "raises given invalid key #{key.inspect}" do
+        expect {
+          described_class.new(key)
+        }.to raise_error(::CipherStash::Client::Error::InternalError, "expected bloom filter key to be a hex-encoded string (got #{key.inspect})")
+      end
+    end
   end
 
   describe "#add" do
