@@ -43,6 +43,10 @@ module CipherStash
       #
       # @raise [CipherStash::Client::Error::InvalidSchemaError] if an invalid "filterSize" or "filterTermBits" is given.
       def initialize(key, opts = {})
+        unless hex_string?(key)
+          raise ::CipherStash::Client::Error::InternalError, "expected bloom filter key to be a hex-encoded string (got #{key.inspect})"
+        end
+
         @key = [key].pack("H*")
 
         unless @key.length == 32
@@ -108,6 +112,10 @@ module CipherStash
 
       def little_endian_uint16_from_byte_slice(byte_slice)
         byte_slice.unpack("S<").first
+      end
+
+      def hex_string?(val)
+        val.instance_of?(String) and /\A\h*\z/.match?(val)
       end
     end
   end
