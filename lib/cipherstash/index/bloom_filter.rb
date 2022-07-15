@@ -1,3 +1,4 @@
+require "openssl"
 require_relative "../client/error"
 
 module CipherStash
