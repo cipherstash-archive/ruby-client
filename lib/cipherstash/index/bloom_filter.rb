@@ -10,8 +10,9 @@ module CipherStash
       K_MIN = 3
       K_MAX = 16
       K_DEFAULT = 3
+      M_MIN = 32
+      M_MAX = 65536
       M_DEFAULT = 256
-      VALID_M_VALUES = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
 
       # The "set" bits of the bloom filter
       attr_reader :bits
@@ -57,7 +58,7 @@ module CipherStash
 
         @m = opts.fetch("filterSize", M_DEFAULT)
 
-        unless VALID_M_VALUES.include?(@m)
+        unless valid_m?(@m)
           raise ::CipherStash::Client::Error::InvalidSchemaError, "filterSize must be a power of 2 between 32 and 65536 (got #{@m.inspect})"
         end
 
@@ -116,6 +117,14 @@ module CipherStash
 
       def hex_string?(val)
         val.instance_of?(String) and /\A\h*\z/.match?(val)
+      end
+
+      def power_of_2?(m)
+        Math.log2(m).floor == Math.log2(m)
+      end
+
+      def valid_m?(m)
+        m.instance_of?(Integer) && M_MIN <= m && m <= M_MAX && power_of_2?(m)
       end
     end
   end
