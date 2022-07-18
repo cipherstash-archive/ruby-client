@@ -138,7 +138,7 @@ describe CipherStash::Index::BloomFilter do
     end
 
     self::VALID_M_VALUES.each do |m|
-      it "adds bit positions with a max value of #{m} when m=#{m}" do
+      it "adds bit positions with values >= 0 and < #{m} when m=#{m}" do
         filter = described_class.new(key, {"filterSize" => m})
         random_term = SecureRandom.base64(3)
 
@@ -146,7 +146,8 @@ describe CipherStash::Index::BloomFilter do
 
         expect(filter.m).to eq(m)
         expect(filter.bits.length).to be > 0
-        expect(filter.bits.all? { |b| b <= m }).to be(true), "expected all bit positions to be <= #{m}, got bits=#{filter.bits.inspect}"
+        expect(filter.bits.all? { |b| b < m }).to be(true), "expected all bit positions to be < #{m}, got bits=#{filter.bits.inspect}"
+        expect(filter.bits.all? { |b| b >= 0 }).to be(true), "expected all bit positions to be >= 0, got bits=#{filter.bits.inspect}"
       end
     end
 
