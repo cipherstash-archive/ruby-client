@@ -153,11 +153,15 @@ module CipherStash
         }
 
         indexes = schema.fetch("indexes", {}).map do |idx_name, idx_settings|
+          kind = remap_kind_if_match_index(idx_settings["kind"])
+          meta = Index.subclass_for_kind(kind).meta(idx_name)
+
           {
-            meta: index_meta(idx_settings["kind"], idx_name),
+            meta: meta,
             mapping: idx_settings.merge(
               {
-                "fieldType" => case idx_settings["kind"]
+                "kind" => kind,
+                "fieldType" => case kind
                 when "exact", "range"
                   schema["type"][idx_settings["field"]]
                 when "match", "dynamic-match", "field-dynamic-match",
@@ -165,20 +169,9 @@ module CipherStash
                      "filter-match", "dynamic-filter-match", "field-dynamic-filter-match"
                   "string"
                 else
-                  raise Error::InvalidSchemaError, "Unknown index kind #{idx_settings["kind"]}"
+                  raise Error::InvalidSchemaError, "Unknown index kind #{kind}"
                 end,
-                # New match, dynamic-match, and field-dynamic-match indexes should use filter indexes.
-                # ORE match indexes require specifically using a *-ore-match index.
-                "kind" => case idx_settings["kind"]
-                when "match"
-                  "filter-match"
-                when "dynamic-match"
-                  "dynamic-filter-match"
-                when "field-dynamic-match"
-                  "field-dynamic-filter-match"
-                else
-                  idx_settings["kind"]
-                end
+
               }
             ),
           }
@@ -280,6 +273,21 @@ module CipherStash
       end
 
       @rpc.migrate_collection(name, new_metadata, new_indexes, current_collection.current_schema_version)
+    end
+
+    def remap_kind_if_match_index(kind)
+      # New match, dynamic-match, and field-dynamic-match indexes should use filter indexes.
+      # ORE match indexes require specifically using a *-ore-match index.
+      case kind
+      when "match"
+        "filter-match"
+      when "dynamic-match"
+        "dynamic-filter-match"
+      when "field-dynamic-match"
+        "field-dynamic-filter-match"
+      else
+        kind
+      end
     end
 
     def index_meta(kind, name)

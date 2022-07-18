@@ -31,6 +31,10 @@ module CipherStash
         end,
       }
 
+      def self.meta(name)
+        self.ore_meta(name)
+      end
+
       def orderable?
         true
       end

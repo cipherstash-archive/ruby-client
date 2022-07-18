@@ -10,6 +10,10 @@ module CipherStash
         end,
       }
 
+      def self.meta(name)
+        self.ore_meta(name)
+      end
+
       def analyze(uuid, record)
         blid = blob_from_uuid(uuid)
 

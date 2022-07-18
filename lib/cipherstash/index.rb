@@ -21,28 +21,31 @@ module CipherStash
   class Index
     include UUIDHelpers
 
+    SUBCLASSES_BY_KIND = {
+      "exact" => Exact,
+      "range" => Range,
+      "match" => OreMatch,
+      "ore-match" => OreMatch,
+      "filter-match" => FilterMatch,
+      "dynamic-match" => DynamicOreMatch,
+      "dynamic-ore-match" => DynamicOreMatch,
+      "dynamic-filter-match" => DynamicFilterMatch,
+      "field-dynamic-match" => FieldDynamicOreMatch,
+      "field-dynamic-ore-match" => FieldDynamicOreMatch,
+      "field-dynamic-filter-match" => FieldDynamicFilterMatch,
+    }
+
+    def self.subclass_for_kind(kind)
+      SUBCLASSES_BY_KIND[kind]
+    end
+
     def self.generate(id, settings, schema_versions)
-      case settings["mapping"]["kind"]
-      when "exact"
-        Exact.new(id, settings, schema_versions)
-      when "range"
-        Range.new(id, settings, schema_versions)
-      when "match", "ore-match"
-        OreMatch.new(id, settings, schema_versions)
-      when "dynamic-match", "dynamic-ore-match"
-        DynamicOreMatch.new(id, settings, schema_versions)
-      when "field-dynamic-match", "field-dynamic-ore-match"
-        FieldDynamicOreMatch.new(id, settings, schema_versions)
-      when "field-dynamic-exact"
-        FieldDynamicExact.new(id, settings, schema_versions)
-      when "filter-match"
-        FilterMatch.new(id, settings, schema_versions)
-      when "dynamic-filter-match"
-        DynamicFilterMatch.new(id, settings, schema_versions)
-      when "field-dynamic-filter-match"
-        FieldDynamicFilterMatch.new(id, settings, schema_versions)
-      else
+      subclass = subclass_for_kind(settings["mapping"]["kind"])
+
+      if subclass.nil?
         raise Client::Error::InvalidSchemaError, "Unknown index kind #{settings["mapping"]["kind"].inspect}"
+      else
+        subclass.new(id, settings, schema_versions)
       end
     end
 
@@ -190,6 +193,23 @@ module CipherStash
       else
         nil
       end
+    end
+
+    def self.ore_meta(name)
+      {
+        "$indexId" => SecureRandom.uuid,
+        "$indexName" => name,
+        "$prfKey" => SecureRandom.hex(16),
+        "$prpKey" => SecureRandom.hex(16),
+      }
+    end
+
+    def self.filter_meta(name)
+      {
+        "$indexId" => SecureRandom.uuid,
+        "$indexName" => name,
+        "$filterKey" =>  SecureRandom.hex(32),
+      }
     end
   end
 end
