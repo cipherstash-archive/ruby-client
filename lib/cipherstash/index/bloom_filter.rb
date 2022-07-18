@@ -20,7 +20,7 @@ module CipherStash
       # The size of the bloom filter in bits. Same as "filterSize" in the schema mapping and public docs.
       #
       # Since we only keep track of the set bits, the filter size determines the maximum value of the positions stored in the bits attr.
-      # Bits positions are zero-indexed and will have values >= 0 and <= m-1.
+      # Bit positions are zero-indexed and will have values >= 0 and <= m-1.
       #
       # Valid values are powers of 2 from 32 to 65536.
       #
