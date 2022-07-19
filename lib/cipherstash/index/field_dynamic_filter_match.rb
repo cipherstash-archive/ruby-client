@@ -15,6 +15,14 @@ module CipherStash
           end,
         }
 
+        def self.supported_kinds
+          ["field-dynamic-filter-match"]
+        end
+
+        def self.meta(name)
+          self.filter_meta(name)
+        end
+
         def analyze(uuid, record)
           blid = blob_from_uuid(uuid)
 

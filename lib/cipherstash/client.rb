@@ -153,35 +153,20 @@ module CipherStash
         }
 
         indexes = schema.fetch("indexes", {}).map do |idx_name, idx_settings|
-          {
-            meta: index_meta(idx_settings["kind"], idx_name),
-            mapping: idx_settings.merge(
-              {
-                "fieldType" => case idx_settings["kind"]
-                when "exact", "range"
-                  schema["type"][idx_settings["field"]]
-                when "match", "dynamic-match", "field-dynamic-match",
-                     "ore-match", "dynamic-ore-match", "field-dynamic-ore-match",
-                     "filter-match", "dynamic-filter-match", "field-dynamic-filter-match"
-                  "string"
-                else
-                  raise Error::InvalidSchemaError, "Unknown index kind #{idx_settings["kind"]}"
-                end,
-                # New match, dynamic-match, and field-dynamic-match indexes should use filter indexes.
-                # ORE match indexes require specifically using a *-ore-match index.
-                "kind" => case idx_settings["kind"]
-                when "match"
-                  "filter-match"
-                when "dynamic-match"
-                  "dynamic-filter-match"
-                when "field-dynamic-match"
-                  "field-dynamic-filter-match"
-                else
-                  idx_settings["kind"]
-                end
-              }
-            ),
-          }
+          # New match, dynamic-match, and field-dynamic-match indexes should use filter indexes.
+          # ORE match indexes require specifically using a *-ore-match index.
+          idx_settings["kind"] = case idx_settings["kind"]
+          when "match"
+            "filter-match"
+          when "dynamic-match"
+            "dynamic-filter-match"
+          when "field-dynamic-match"
+            "field-dynamic-filter-match"
+          else
+            idx_settings["kind"]
+          end
+
+          Index.subclass_from_kind(idx_settings["kind"]).settings(idx_name, idx_settings, schema)
         end
 
         begin

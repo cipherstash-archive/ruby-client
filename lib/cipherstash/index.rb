@@ -3,15 +3,6 @@ require "ore-rs"
 require_relative "./uuid_helpers"
 require_relative "./analysis/text_processor"
 
-require_relative "./index/exact"
-require_relative "./index/range"
-require_relative "./index/ore_match"
-require_relative "./index/dynamic_ore_match"
-require_relative "./index/field_dynamic_ore_match"
-require_relative "./index/field_dynamic_exact"
-require_relative "./index/filter_match"
-require_relative "./index/dynamic_filter_match"
-require_relative "./index/field_dynamic_filter_match"
 require_relative "./client/error"
 
 module CipherStash
@@ -21,28 +12,64 @@ module CipherStash
   class Index
     include UUIDHelpers
 
-    def self.generate(id, settings, schema_versions)
-      case settings["mapping"]["kind"]
-      when "exact"
-        Exact.new(id, settings, schema_versions)
-      when "range"
-        Range.new(id, settings, schema_versions)
-      when "match", "ore-match"
-        OreMatch.new(id, settings, schema_versions)
-      when "dynamic-match", "dynamic-ore-match"
-        DynamicOreMatch.new(id, settings, schema_versions)
-      when "field-dynamic-match", "field-dynamic-ore-match"
-        FieldDynamicOreMatch.new(id, settings, schema_versions)
-      when "field-dynamic-exact"
-        FieldDynamicExact.new(id, settings, schema_versions)
-      when "filter-match"
-        FilterMatch.new(id, settings, schema_versions)
-      when "dynamic-filter-match"
-        DynamicFilterMatch.new(id, settings, schema_versions)
-      when "field-dynamic-filter-match"
-        FieldDynamicFilterMatch.new(id, settings, schema_versions)
-      else
-        raise Client::Error::InvalidSchemaError, "Unknown index kind #{settings["mapping"]["kind"].inspect}"
+    def self.inherited(subclass)
+      @@index_classes ||= []
+      @@index_classes << subclass
+    end
+
+    class << self
+      def subclass_from_kind(kind)
+        @index_class_mapping ||= @@index_classes.each_with_object({}) do |subclass, class_map|
+          subclass.supported_kinds.each do |kind|
+            if class_map.key?(kind)
+              raise Client::Error::InternalError, "index kind #{kind} registered by multiple classes: #{class_map[kind]} and #{subclass}"
+            end
+            class_map[kind] = subclass
+          end
+        end
+
+        @index_class_mapping[kind].tap do |subclass|
+          if subclass.nil?
+            raise Client::Error::InvalidSchemaError, "Unknown index kind #{kind.inspect}"
+          end
+        end
+      end
+
+      def generate(id, settings, schema_versions)
+        subclass = subclass_from_kind(settings["mapping"]["kind"])
+        subclass.new(id, settings, schema_versions)
+      end
+
+      def settings(name, base_settings, schema)
+        subclass = subclass_from_kind(base_settings["kind"])
+
+        {
+          meta: subclass.meta(name),
+          mapping: subclass.mapping(base_settings, schema),
+        }
+      end
+
+      protected
+
+      def mapping(base_settings, schema)
+        base_settings.merge("fieldType" => "string")
+      end
+
+      def ore_meta(name)
+        {
+          "$indexId" => SecureRandom.uuid,
+          "$indexName" => name,
+          "$prfKey" => SecureRandom.hex(16),
+          "$prpKey" => SecureRandom.hex(16),
+        }
+      end
+
+      def filter_meta(name)
+        {
+          "$indexId" => SecureRandom.uuid,
+          "$indexName" => name,
+          "$filterKey" =>  SecureRandom.hex(32),
+        }
       end
     end
 
@@ -193,3 +220,13 @@ module CipherStash
     end
   end
 end
+
+require_relative "./index/exact"
+require_relative "./index/range"
+require_relative "./index/ore_match"
+require_relative "./index/dynamic_ore_match"
+require_relative "./index/field_dynamic_ore_match"
+require_relative "./index/field_dynamic_exact"
+require_relative "./index/filter_match"
+require_relative "./index/dynamic_filter_match"
+require_relative "./index/field_dynamic_filter_match"
