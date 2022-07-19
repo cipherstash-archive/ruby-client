@@ -10,6 +10,14 @@ module CipherStash
         end,
       }
 
+      def self.supported_kinds
+        ["match", "ore-match"]
+      end
+
+      def self.meta(name)
+        self.ore_meta(name)
+      end
+
       def orderable?
         false
       end

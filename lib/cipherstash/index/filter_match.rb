@@ -15,6 +15,14 @@ module CipherStash
           end,
         }
 
+        def self.supported_kinds
+          ["filter-match"]
+        end
+
+        def self.meta(name)
+          self.filter_meta(name)
+        end
+
         def orderable?
           false
         end

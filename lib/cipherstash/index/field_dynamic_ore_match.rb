@@ -10,6 +10,14 @@ module CipherStash
         end,
       }
 
+      def self.supported_kinds
+        ["field-dynamic-match", "field-dynamic-ore-match"]
+      end
+
+      def self.meta(name)
+        self.ore_meta(name)
+      end
+
       def analyze(uuid, record)
         blid = blob_from_uuid(uuid)
 
