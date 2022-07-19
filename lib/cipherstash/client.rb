@@ -266,24 +266,5 @@ module CipherStash
 
       @rpc.migrate_collection(name, new_metadata, new_indexes, current_collection.current_schema_version)
     end
-
-    def index_meta(kind, name)
-      case kind
-      when "match", "dynamic-match", "field-dynamic-match",
-        "filter-match", "dynamic-filter-match", "field-dynamic-filter-match"
-        {
-          "$indexId" => SecureRandom.uuid,
-          "$indexName" => name,
-          "$filterKey" =>  SecureRandom.hex(32),
-        }
-      else
-        {
-          "$indexId" => SecureRandom.uuid,
-          "$indexName" => name,
-          "$prfKey" => SecureRandom.hex(16),
-          "$prpKey" => SecureRandom.hex(16),
-        }
-      end
-    end
   end
 end
