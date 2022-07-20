@@ -6,10 +6,7 @@ This is a Ruby (with Rust backend) client for the [CipherStash encrypted, search
 > While we're happy for you to use it, and most things work, there are a couple of things missing.
 > If something *not* on the list below is broken for you, please [report an issue](https://github.com/cipherstash/ruby-client/issues).
 >
-> At present, the following things are known to not be supported:
->
-> * Streaming put
-> * Interacting with collections or records created with StashJS
+> At present, interacting with collections or records created with StashJS is not supported.
 
 
 # Installation
