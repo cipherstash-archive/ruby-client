@@ -62,6 +62,10 @@ module CipherStash
     # @option logger [Logger] specify a custom logger.
     #   If not provided, only warnings and errors will be printed to `stderr`.
     #
+    # @option rpc_class [Class] a class to use in place of CipherStash::Client::RPC.
+    #   This option is used internally for unit testing and is not intended for regular usage.
+    #   Defaults to CipherStash::Client::RPC.
+    #
     # @option metrics [CipherStash::Client::Metrics] somewhere to collect metrics about this client's operation.
     #   If not provided, no metrics will be collected.
     #   For more information on metrics and how they work, see the documentation for CipherStash::Client::Metrics.
@@ -73,7 +77,7 @@ module CipherStash
     #
     # @raise [CipherStash::Client::Error::InvalidProfileError] if the profile, after being overridden by environment variables and constructor options, was not valid.
     #
-    def initialize(profileName: Unspecified, logger: Unspecified, metrics: Metrics::Null.new, **opts)
+    def initialize(profileName: Unspecified, logger: Unspecified, metrics: Metrics::Null.new, rpc_class: RPC, **opts)
       @logger = if logger == Unspecified
                   Logger.new($stderr).tap { |l| l.level = Logger::WARN; l.formatter = ->(_, _, _, m) { "#{m}\n" } }
                 else
@@ -87,7 +91,7 @@ module CipherStash
       @profile = Profile.load(profileName == Unspecified ? nil : profileName, @logger, **opts)
       @metrics = metrics
       @metrics.created
-      @rpc = RPC.new(@profile, @logger, @metrics)
+      @rpc = rpc_class.new(@profile, @logger, @metrics)
     end
 
     # Load an existing collection from the data store by name.
@@ -149,26 +153,20 @@ module CipherStash
         }
 
         indexes = schema.fetch("indexes", {}).map do |idx_name, idx_settings|
-          {
-            meta: {
-              "$indexId" => SecureRandom.uuid,
-              "$indexName" => idx_name,
-              "$prfKey" => SecureRandom.hex(16),
-              "$prpKey" => SecureRandom.hex(16),
-            },
-            mapping: idx_settings.merge(
-              {
-                "fieldType" => case idx_settings["kind"]
-                when "exact", "range"
-                  schema["type"][idx_settings["field"]]
-                when "match", "dynamic-match", "field-dynamic-match"
-                  "string"
-                else
-                  raise Error::InvalidSchemaError, "Unknown index kind #{idx_settings["kind"]}"
-                end
-              }
-            ),
-          }
+          # New match, dynamic-match, and field-dynamic-match indexes should use filter indexes.
+          # ORE match indexes require specifically using a *-ore-match index.
+          idx_settings["kind"] = case idx_settings["kind"]
+          when "match"
+            "filter-match"
+          when "dynamic-match"
+            "dynamic-filter-match"
+          when "field-dynamic-match"
+            "field-dynamic-filter-match"
+          else
+            idx_settings["kind"]
+          end
+
+          Index.subclass_from_kind(idx_settings["kind"]).settings(idx_name, idx_settings, schema)
         end
 
         begin

@@ -10,6 +10,18 @@ module CipherStash
         end,
       }
 
+      def self.supported_kinds
+        ["exact"]
+      end
+
+      def self.meta(name)
+        self.ore_meta(name)
+      end
+
+      def self.mapping(base_settings, schema)
+        base_settings.merge("fieldType" => schema["type"][base_settings["field"]])
+      end
+
       def orderable?
         false
       end
