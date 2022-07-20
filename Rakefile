@@ -10,7 +10,19 @@ rescue Bundler::BundlerError => e
   exit e.status_code
 end
 
-Bundler::GemHelper.install_tasks
+spec = Bundler.load_gemspec("cipherstash-client.gemspec")
+require "rubygems/package_task"
+
+Gem::PackageTask.new(spec) { |pkg| }
+
+namespace :gem do
+  desc "Push all freshly-built gems to RubyGems"
+  task :push do
+    Rake::Task.tasks.select { |t| t.name =~ %r{^pkg/#{spec.name}-.*\.gem} && t.already_invoked }.each do |pkgtask|
+      sh "gem", "push", pkgtask.name
+    end
+  end
+end
 
 task :release do
   sh "git release"
