@@ -339,7 +339,7 @@ module CipherStash
     def query(opts = {}, &blk)
       @metrics.measure_client_call("query") do
         q = Query.new(self, opts)
-        @rpc.query(self, q.parse(&blk))
+        @rpc.query(self, *q.parse(&blk))
       end
     rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Collection#query") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }

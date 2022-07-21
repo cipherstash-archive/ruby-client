@@ -1,5 +1,6 @@
 require "cipherstash/grpc"
 
+require_relative "./result_filter"
 require_relative "../uuid_helpers"
 
 module CipherStash
@@ -20,7 +21,7 @@ module CipherStash
         qc = QueryCollector.new(@collection)
         yield qc if block_given?
 
-        Queries::Query.new(
+        request = Queries::Query.new(
           limit: @opts[:limit] || 50,
           constraints: qc.__constraints,
           aggregates: [],
@@ -28,16 +29,19 @@ module CipherStash
           skipResults: false,
           offset: @opts[:offset] || 0
         )
+
+        [request, qc.result_filter]
       end
 
       class QueryCollector < BasicObject
-        attr_reader :__constraints, :__ordering
+        attr_reader :__constraints, :__ordering, :result_filter
 
         def initialize(collection)
           @collection = collection
           @__constraints = []
           @__ordering = []
           @index = nil
+          @result_filter = ResultFilter.new()
         end
 
         def order_by(index_name, direction = :ASC)
@@ -62,6 +66,10 @@ module CipherStash
             ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "unknown operator `#{operator}' for index '#{index_name}'"
           end
 
+          if @index.respond_to?(:filter_fn)
+            @result_filter.add(@index.filter_fn(*args))
+          end
+
           @__constraints += index.generate_constraints(operator, *args)
         end
 
@@ -70,6 +78,11 @@ module CipherStash
           if @index
             if @index.supports?(name.to_s)
               @__constraints += @index.generate_constraints(name.to_s, *args)
+
+              if @index.respond_to?(:filter_fn)
+                @result_filter.add(@index.filter_fn(*args))
+              end
+
               @index = nil
             else
               ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "unknown operator `#{name}' for index '#{@index.name}'"
@@ -92,7 +105,6 @@ module CipherStash
             unless index.searchable?
               ::Kernel.raise ::CipherStash::Client::Error::QueryConstraintError, "index `#{name}' for collection '#{@collection.name}' is not yet searchable (not all records in the collection have been re-indexed yet)"
             end
-
 
             index
           end

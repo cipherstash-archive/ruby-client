@@ -42,6 +42,25 @@ module CipherStash
             { indexId: binid, terms: [{ bits: filter.to_a, link: blid }] }
           end
         end
+
+        # Returns a fn that takes a records and returns true if it's a match a false if not
+        def filter_fn(query_text)
+          index = self
+
+          ->(record) do
+            query_terms = index.text_processor.perform(query_text)
+
+            field_names = index.mapping_settings["fields"]
+            record_terms = field_names
+              .map { |field_name| nested_lookup(record, field_name) }
+              .compact
+              .map { |s| text_processor.perform(s) }
+              .flatten
+              .uniq
+
+            Set.new(query_terms).subset?(Set.new(record_terms))
+          end
+        end
       end
     end
   end
