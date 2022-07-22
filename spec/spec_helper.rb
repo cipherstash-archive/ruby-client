@@ -40,5 +40,10 @@ RSpec.configure do |config|
 		c.syntax = :expect
 	end
 
-  config.include ExampleMethods
+	config.before(:each) do
+		stub_double = instance_double("CipherStash::GRPC::Stub")
+		allow(CipherStash::GRPC::Stub).to receive(:new).and_return(stub_double)
+	end
+
+	config.include ExampleMethods
 end
