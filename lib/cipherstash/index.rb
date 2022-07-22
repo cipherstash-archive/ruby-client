@@ -95,10 +95,10 @@ module CipherStash
     # Creates a new index from the decrypted settings.
     def initialize(uuid, settings, schema_versions)
       unless is_uuid?(uuid)
-        raise Error::InternalError, "Invalid UUID passed to Index.new: #{uuid.inspect}"
+        raise Client::Error::InternalError, "Invalid UUID passed to Index.new: #{uuid.inspect}"
       end
       unless uuid == settings["meta"]["$indexId"]
-        raise Error::InternalError, "Provided UUID does not match UUID in settings (#{uuid} != #{settings["meta"]["$indexId"]})"
+        raise Client::Error::InternalError, "Provided UUID does not match UUID in settings (#{uuid} != #{settings["meta"]["$indexId"]})"
       end
       @uuid, @settings = uuid, settings
       @first_schema_version, @last_schema_version, @is_searchable = schema_versions[:first], schema_versions[:last], schema_versions[:searchable]
@@ -156,7 +156,7 @@ module CipherStash
     def generate_constraints(op, *args)
       op_fn = self.class::INDEX_OPS[op]
       if op_fn.nil?
-        raise Error::InvalidQuery, "Unknown operator #{op.inspect}"
+        raise Client::Error::QueryConstraintError, "Unknown operator #{op.inspect}"
       end
 
       op_fn.call(self, *args)
