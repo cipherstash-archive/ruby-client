@@ -126,7 +126,7 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for general contribution guideline
 
 If you have push access to the GitHub repository, you can make a release by doing the following:
 
-1. Run `git version-bump <major|minor|patch>` (see [the semver spec](https://semver.org) for what each of major, minor, and patch version bumps represent).
+1. Run `git version-bump -n <major|minor|patch>` (see [the semver spec](https://semver.org) for what each of major, minor, and patch version bumps represent).
 
 2. Write a changelog for the release, in Git commit style (headline on the first line, blank line, then Markdown text as you see fit).
    Save/exit your editor.
