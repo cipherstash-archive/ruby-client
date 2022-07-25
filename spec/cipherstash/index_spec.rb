@@ -5,42 +5,42 @@ require "logger"
 require "cipherstash/index"
 
 describe CipherStash::Index do
+  def match_settings(id, kind)
+    {
+      "meta" => {
+        "$indexId" => id,
+        "$indexName" => "title",
+        "$prfKey" => "prf-key",
+        "$prpKey"=> "prp-key",
+      },
+      "mapping" => {
+        "kind" => kind,
+        "fields" => ["title"],
+        "tokenFilters" => [{"kind"=>"downcase"}, {"kind"=>"ngram", "tokenLength"=>3}],
+        "tokenizer" => {"kind"=>"standard"},
+        "fieldType" => "string",
+      }
+    }
+  end
+
+  def dynamic_match_settings(id, kind)
+    {
+      "meta" => {
+        "$indexId" => id,
+        "$indexName" => "title",
+        "$prfKey" => "prf-key",
+        "$prpKey"=> "prp-key",
+      },
+      "mapping" => {
+        "kind" => kind,
+        "tokenFilters" => [{"kind"=>"downcase"}, {"kind"=>"ngram", "tokenLength"=>3}],
+        "tokenizer" => {"kind"=>"standard"},
+        "fieldType" => "string",
+      }
+    }
+  end
+
   describe ".generate" do
-    def match_settings(id, kind)
-      {
-        "meta" => {
-          "$indexId" => id,
-          "$indexName" => "title",
-          "$prfKey" => "prf-key",
-          "$prpKey"=> "prp-key",
-        },
-        "mapping" => {
-          "kind" => kind,
-          "fields" => ["title"],
-          "tokenFilters" => [{"kind"=>"downcase"}, {"kind"=>"ngram", "tokenLength"=>3}],
-          "tokenizer" => {"kind"=>"standard"},
-          "fieldType" => "string",
-        }
-      }
-    end
-
-    def dynamic_match_settings(id, kind)
-      {
-        "meta" => {
-          "$indexId" => id,
-          "$indexName" => "title",
-          "$prfKey" => "prf-key",
-          "$prpKey"=> "prp-key",
-        },
-        "mapping" => {
-          "kind" => kind,
-          "tokenFilters" => [{"kind"=>"downcase"}, {"kind"=>"ngram", "tokenLength"=>3}],
-          "tokenizer" => {"kind"=>"standard"},
-          "fieldType" => "string",
-        }
-      }
-    end
-
     let(:id) { SecureRandom.uuid }
     let(:schema_versions) { {:first=>0, :last=>0, :searchable=>true} }
 
@@ -151,6 +151,39 @@ describe CipherStash::Index do
           described_class.generate(id, settings, schema_versions)
         }.to raise_error(::CipherStash::Client::Error::InvalidSchemaError, 'Unknown index kind "invalid"')
       end
+    end
+
+    it "raises given an ID that isn't a UUID" do
+      id = "notauuid"
+      kind = "match"
+      settings = match_settings(id, kind)
+
+      expect {
+        described_class.generate(id, settings, schema_versions)
+      }.to raise_error(::CipherStash::Client::Error::InternalError, 'Invalid UUID passed to Index.new: "notauuid"')
+    end
+
+    it "raises given a UUID that doesn't match the ID in index meta" do
+      id_arg = SecureRandom.uuid
+      id_settings = SecureRandom.uuid
+      settings = match_settings(id_settings, "match")
+
+      expect {
+        described_class.generate(id_arg, settings, schema_versions)
+      }.to raise_error(::CipherStash::Client::Error::InternalError, "Provided UUID does not match UUID in settings (#{id_arg} != #{id_settings})")
+    end
+  end
+
+  describe "#generate_constraints" do
+    it "raises given an invalid op" do
+      id = SecureRandom.uuid
+      settings = match_settings(id, "match")
+      schema_versions = {"mapping" => {"kind" => "invalid"}}
+      index = described_class.generate(id, settings, schema_versions)
+
+      expect{
+        index.generate_constraints("NOPE")
+      }.to raise_error(::CipherStash::Client::Error::QueryConstraintError, 'Unknown operator "NOPE"')
     end
   end
 end
