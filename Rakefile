@@ -70,41 +70,6 @@ task :generate_ordered_string_test_cases do
   num_test_cases = 100
 
   string_comparison_cases = (0..(num_test_cases - 1)).map do
-    # TODO: this only gives single-char strings of alpha chars for debugging
-    # why this test case doesn't work. This looks like a bug on the ruby side.
-    # The comparison logic using encrypted terms is busted.
-    # random_ascii_string = -> () do
-    #   max_string_length = 10
-    #   (0..0).map { (rand(26) + 97).chr }.join
-    # end
-
-    # str_a = random_ascii_string.call
-    # terms_a = index.analyze(SecureRandom.uuid, {"title" => str_a})[:terms]
-
-    # if terms_a.length != 1
-    #   raise "Expected terms_a to have exactly one item. Had #{terms_a.length}"
-    # end
-
-    # term_a = terms_a.first[:term]
-
-    # str_b = random_ascii_string.call
-    # terms_b = index.analyze(SecureRandom.uuid, {"title" => str_b})[:terms]
-
-    # if terms_b.length != 1
-    #   raise "Expected terms_b to have exactly one item. Had #{terms_b.length}"
-    # end
-
-    # term_b = terms_b.first[:term]
-
-    # output = case term_a <=> term_b
-    #   when -1
-    #     "<"
-    #   when 0
-    #     "=="
-    #   when 1
-    #     ">"
-    #   end
-
     str_a = random_ascii_string.call
     terms_a = index.__send__ :orderise_string, str_a
 
