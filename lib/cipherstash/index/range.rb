@@ -80,7 +80,7 @@ module CipherStash
           # We care not for your capitals!
           .downcase
           # Any group of rando characters sort at the end
-          .gsub(/[^a-z0-9 ]+/, '~')
+          .gsub(/[^a-z0-9[:space:]]+/, '~')
           # Any amount of whitespace comes immediately after letters
           .gsub(/[[:space:]]+/, '{')
           # Numbers come after spaces
