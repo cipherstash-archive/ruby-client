@@ -76,7 +76,11 @@ module CipherStash
         # This all very much relies on ASCII character numbering.  A copy of `ascii`(7)
         # up on a convenient terminal may assist in understanding what's going
         # on here.
-        n = s
+
+        # First up, let's transmogrify the string we were given into one that only contains
+        # a controlled subset of characters, that we can easily map into a smaller numeric
+        # space.
+        s = s
           # We care not for your capitals!
           .downcase
           # Any group of rando characters sort at the end
@@ -85,6 +89,11 @@ module CipherStash
           .gsub(/[[:space:]]+/, '{')
           # Numbers come after spaces
           .gsub(/[0-9]/, '|')
+
+        # Next, we turn that string of characters into a "packed" number that represents the
+        # whole string, but in a more compact form than would be used if each character took
+        # up the full seven or eight bits used by regular ASCII.
+        n = s
           .each_char
           # 'a' => 1, 'b' => 2, ..., 'z' => 27, '{' => 28, '|' => 29,
           # '}' => 30 (unused), '~' => 31.  0 is kept as "no character" so
@@ -94,13 +103,13 @@ module CipherStash
           # occupying five bits of said number.
           .inject(0) { |i, c| (i << 5) + c }
 
-        # Now we need to turn the number into one whose in-memory representation
+        # Thirdly, we need to turn the number into one whose in-memory representation
         # has a length in bits that is a multiple of 64.  This is to ensure that
         # the first character has the most-significant bits possible, so it
         # sorts the highest.
         n = n << (64 - (s.length * 5) % 64)
 
-        # And now we can turn all that gigantic mess into an array of terms
+        # And now, semi-finally, we can turn all that gigantic mess into an array of terms
         [].tap do |terms|
           while n > 0
             terms.unshift(n % 2**64)
