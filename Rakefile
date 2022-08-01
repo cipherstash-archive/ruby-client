@@ -57,7 +57,10 @@ task :generate_ordered_string_test_cases do
     (0..rand(max_string_length -1)).map { rand(unicode_char_max + 1).chr }.join
   end
 
-  num_test_cases = 1_000
+  # This number is arbitrary. 100 seems good because GitHub is willing to display
+  # the output files in diffs in PRs, but will require pulling branches down for
+  # larger numbers of test cases.
+  num_test_cases = 100
 
   orderise_string_cases = (0..(num_test_cases - 1)).map do
     str = random_ascii_string.call
@@ -65,9 +68,7 @@ task :generate_ordered_string_test_cases do
     {input: str, output: output}
   end
 
-  File.write("orderise_string_test_cases.json", orderise_string_cases.to_json)
-
-  num_test_cases = 100
+  File.write("orderise_string_test_cases.json", JSON.pretty_generate(orderise_string_cases))
 
   string_comparison_cases = (0..(num_test_cases - 1)).map do
     str_a = random_ascii_string.call
@@ -88,7 +89,7 @@ task :generate_ordered_string_test_cases do
     {input: [str_a, str_b], output: output}
   end
 
-  File.write("string_comparison_test_cases.json", string_comparison_cases.to_json)
+  File.write("string_comparison_test_cases.json", JSON.pretty_generate(string_comparison_cases))
 end
 
 require 'yard'
