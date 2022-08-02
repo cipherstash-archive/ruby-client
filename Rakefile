@@ -28,68 +28,11 @@ task :release do
   sh "git release"
 end
 
-require "securerandom"
-require "./lib/cipherstash/index"
-require "json"
+require "./lib/cipherstash/ordered_string_test_generator"
 
+desc "Generate test cases for orderable strings to be used by other CipherStash clients"
 task :generate_ordered_string_test_cases do
-  id = SecureRandom.uuid
-  settings = {
-    "meta" => {
-      "$indexId" => id,
-      "$indexName" => "titleSort",
-      "$prfKey" => SecureRandom.hex(16),
-      "$prpKey" => SecureRandom.hex(16),
-    },
-    "mapping" => {
-      "kind" => "range",
-      "field" => "title",
-      "fieldType"=>"string",
-    }
-  }
-  schema_versions = {:first=>0, :last=>0, :searchable=>true}
-
-  index = CipherStash::Index.generate(id, settings, schema_versions)
-
-  random_ascii_string = -> () do
-    unicode_char_max = 127
-    max_string_length = 200
-    (0..rand(max_string_length -1)).map { rand(unicode_char_max + 1).chr }.join
-  end
-
-  # This number is arbitrary. 100 seems good because GitHub is willing to display
-  # the output files in diffs in PRs, but will require pulling branches down for
-  # larger numbers of test cases.
-  num_test_cases = 100
-
-  orderise_string_cases = (0..(num_test_cases - 1)).map do
-    str = random_ascii_string.call
-    output = index.__send__ :orderise_string, str
-    {input: str, output: output}
-  end
-
-  File.write("orderise_string_test_cases.json", JSON.pretty_generate(orderise_string_cases))
-
-  string_comparison_cases = (0..(num_test_cases - 1)).map do
-    str_a = random_ascii_string.call
-    terms_a = index.__send__ :orderise_string, str_a
-
-    str_b = random_ascii_string.call
-    terms_b = index.__send__ :orderise_string, str_b
-
-    output = case terms_a <=> terms_b
-      when -1
-        "<"
-      when 0
-        "=="
-      when 1
-        ">"
-      end
-
-    {input: [str_a, str_b], output: output}
-  end
-
-  File.write("string_comparison_test_cases.json", JSON.pretty_generate(string_comparison_cases))
+  CipherStash::OrderedStringTestGenerator.new.run
 end
 
 require 'yard'
