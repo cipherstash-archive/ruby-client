@@ -27,9 +27,37 @@ module CipherStash
       # beyond what actually gets indexed for ordering but doesn't bloat the test files too much.
       MAX_STRING_LENGTH = 200
 
-      def run
-        create_orderise_string_test_cases
-        create_string_comparison_test_cases
+      def generate_orderise_string_test_cases
+        orderise_string_cases = (0..(NUM_TEST_CASES - 1)).map do
+          str = random_ascii_string
+          output = index.__send__ :orderise_string, str
+          {input: str, output: output}
+        end
+
+        puts JSON.pretty_generate(orderise_string_cases)
+      end
+
+      def generate_string_comparison_test_cases
+        string_comparison_cases = (0..(NUM_TEST_CASES - 1)).map do
+          str_a = random_ascii_string
+          terms_a = index.__send__ :orderise_string, str_a
+
+          str_b = random_ascii_string
+          terms_b = index.__send__ :orderise_string, str_b
+
+          output = case terms_a <=> terms_b
+            when -1
+              "<"
+            when 0
+              "=="
+            when 1
+              ">"
+            end
+
+          {input: [str_a, str_b], output: output}
+        end
+
+        puts JSON.pretty_generate(string_comparison_cases)
       end
 
       private
@@ -56,44 +84,6 @@ module CipherStash
         schema_versions = {:first=>0, :last=>0, :searchable=>true}
 
         CipherStash::Index.generate(id, settings, schema_versions)
-      end
-
-      def write_cases_to_file(filename, test_cases)
-        File.write(filename, JSON.pretty_generate(test_cases))
-        puts "Created ./" + filename
-      end
-
-      def create_orderise_string_test_cases
-        orderise_string_cases = (0..(NUM_TEST_CASES - 1)).map do
-          str = random_ascii_string
-          output = index.__send__ :orderise_string, str
-          {input: str, output: output}
-        end
-
-        write_cases_to_file("orderise_string_test_cases.json", orderise_string_cases)
-      end
-
-      def create_string_comparison_test_cases
-        string_comparison_cases = (0..(NUM_TEST_CASES - 1)).map do
-          str_a = random_ascii_string
-          terms_a = index.__send__ :orderise_string, str_a
-
-          str_b = random_ascii_string
-          terms_b = index.__send__ :orderise_string, str_b
-
-          output = case terms_a <=> terms_b
-            when -1
-              "<"
-            when 0
-              "=="
-            when 1
-              ">"
-            end
-
-          {input: [str_a, str_b], output: output}
-        end
-
-        write_cases_to_file("string_comparison_test_cases.json", string_comparison_cases)
       end
     end
   end
