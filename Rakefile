@@ -28,6 +28,18 @@ task :release do
   sh "git release"
 end
 
+require "./lib/cipherstash/client/ordered_string_test_generator"
+
+desc "Generate test cases for orderise_string to be used by other CipherStash clients"
+task :generate_orderise_string_test_cases do
+  CipherStash::Client::OrderedStringTestGenerator.new.generate_orderise_string_test_cases
+end
+
+desc "Generate test cases for string comparison to be used by other CipherStash clients"
+task :generate_string_comparison_test_cases do
+  CipherStash::Client::OrderedStringTestGenerator.new.generate_string_comparison_test_cases
+end
+
 require 'yard'
 
 YARD::Rake::YardocTask.new :doc do |yardoc|
