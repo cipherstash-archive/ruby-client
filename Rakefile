@@ -28,11 +28,11 @@ task :release do
   sh "git release"
 end
 
-require "./lib/cipherstash/ordered_string_test_generator"
+require "./lib/cipherstash/client/ordered_string_test_generator"
 
 desc "Generate test cases for orderable strings to be used by other CipherStash clients"
 task :generate_ordered_string_test_cases do
-  CipherStash::OrderedStringTestGenerator.new.run
+  CipherStash::Client::OrderedStringTestGenerator.new.run
 end
 
 require 'yard'
