@@ -1,5 +1,6 @@
 require "aws-sdk-kms"
 require "cbor"
+require "date"
 require "enveloperb"
 require "grpc"
 require "openssl"
@@ -258,6 +259,9 @@ module CipherStash
           end
         end
 
+        puts "******** records length in rpc put stream *********"
+        p records.size
+
         begin_request = Documents::StreamingPutRequest.new(
           begin: {
             collectionId: blob_from_uuid(collection.id),
@@ -270,9 +274,18 @@ module CipherStash
         # isn't the most idiomatic code on earth...
         requests = [[begin_request], records].lazy.flat_map { |x| x }
 
+        puts "********** requests length in rpc put stream ********"
+        p requests.size
+
         res = @metrics.measure_rpc_call("putStream") do
           stub.put_stream(requests, metadata: rpc_headers)
         end
+        
+        request_completed_at = Time.now
+        puts "response+++++++++++++"
+        puts res
+        puts "response received at--------"
+        puts request_completed_at
 
         unless res.is_a?(Documents::StreamingPutReply)
           raise Error::StreamingPutFailure, "expected Documents::StreamingPutReply response, got #{res.class} instead"

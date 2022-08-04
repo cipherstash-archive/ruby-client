@@ -156,17 +156,33 @@ module CipherStash
     #
     def streaming_upsert(records)
       @metrics.measure_client_call("streaming_upsert") do
-        records = records.lazy.map do |r|
-          @metrics.measure_rpc_call("putStream", :excluded) do
-            unless r.is_a?(Hash) && r.key?(:id) && r.key?(:record)
-              raise ArgumentError, "Malformed record passed to streaming_upsert: #{r.inspect}"
-            end
-            vectors = @indexes.map { |idx| idx.analyze(r[:id], r[:record]) }.compact
-            [r[:id], r[:record], vectors]
-          end
-        end
+        puts "request started at====="
+        puts Time.now
+        num_inserted = 0
+        records.lazy.each_slice(10000) do |record_slice|
+          puts "********** Record slice length ***********"
+          p record_slice.length
 
-        @rpc.put_stream(self, records)
+          chunk = record_slice.lazy.map do |r|
+            @metrics.measure_rpc_call("putStream", :excluded) do
+              unless r.is_a?(Hash) && r.key?(:id) && r.key?(:record)
+                raise ArgumentError, "Malformed record passed to streaming_upsert: #{r.inspect}"
+              end
+              vectors = @indexes.map { |idx| idx.analyze(r[:id], r[:record]) }.compact
+              [r[:id], r[:record], vectors]
+            end
+          end
+          puts "******* Chunk size **********"
+          p chunk.size
+          num_inserted += @rpc.put_stream(self, chunk)
+        end
+        puts "request completed at===="
+        puts Time.now
+
+        puts "num inserted ******"
+        puts num_inserted
+
+        num_inserted
       end
     rescue ::GRPC::Core::StatusCodes => ex
       @logger.error("CipherStash::Collection#streaming_upsert") { "Unhandled GRPC error!  Please report this as a bug!  #{ex.message} (#{ex.class})" }
