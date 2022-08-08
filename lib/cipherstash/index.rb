@@ -35,6 +35,19 @@ module CipherStash
         end
       end
 
+      def invalid_unique_constraint?(unique, kind)
+        [
+          "match",
+          "ore-match",
+          "filter-match",
+          "field-dynamic-match",
+          "field-dynamic-filter-match",
+          "field-dynamic-ore-match",
+          "dynamic-match",
+          "dynamic-filter-match",
+          "dynamic-ore-match"].include?(kind) && unique
+      end
+
       def generate(id, settings, schema_versions)
         subclass = subclass_from_kind(settings["mapping"]["kind"])
         subclass.new(id, settings, schema_versions)
