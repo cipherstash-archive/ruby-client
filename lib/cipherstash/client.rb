@@ -155,10 +155,6 @@ module CipherStash
         }
 
         indexes = schema.fetch("indexes", {}).map do |idx_name, idx_settings|
-          if Index.invalid_unique_constraint?(idx_settings["unique"], idx_settings["kind"])
-            raise CipherStash::Client::Error::InvalidSchemaError, "Unique constraint not allowed on type #{idx_settings["kind"].inspect}" 
-          end
-
           # New match, dynamic-match, and field-dynamic-match indexes should use filter indexes.
           # ORE match indexes require specifically using a *-ore-match index.
           idx_settings["kind"] = case idx_settings["kind"]
