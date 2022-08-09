@@ -1,0 +1,54 @@
+name: "ActiveStash: Smoke Test"
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+jobs:
+  active-stash-smoke-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    env:
+      BUNDLE_GEMFILE: active_stash_smoke_test.gemfile
+      RSPEC_FULL_BACKTRACE: yes
+      CS_IDP_CLIENT_SECRET: ${{ secrets.CS_IDP_CLIENT_SECRET }}
+      CS_WORKSPACE: ${{ secrets.CS_WORKSPACE }}
+      CS_KMS_KEY_ARN: ${{ secrets.CS_KMS_KEY_ARN }}
+      CS_NAMING_KEY:  ${{ secrets.CS_NAMING_KEY }}
+      RAILS_VERSION: 6
+      ACTIVE_STASH_TEST_COLLECTION_PREFIX: run_${{ github.run_number }}.${{ github.run_attempt }}
+      PGDATABASE: test
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          repository: cipherstash/activestash
+      - name: "Create gemfile"
+        # github.head_ref is used for pull_request events and pushes to draft PRs.
+        # github.ref_name is used for pushes to open pull requests.
+        # https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
+        run: |
+          cat <<EOF > active_stash_smoke_test.gemfile
+          source "https://rubygems.org"
+          gemspec
+          gem "rails", "~> 6.0.0"
+          gem "cipherstash-client", git: "https://github.com/cipherstash/ruby-client", branch: "${{ github.head_ref || github.ref_name }}"
+          EOF
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.7
+          bundler-cache: false # don't use bundler-cache because we need to run bundle install manually in a later step
+      - uses: ankane/setup-postgres@v1
+        with:
+          database: ${{ env.PGDATABASE }}
+      # Installs GVB so that bundler can resolve the version of cipherstash-client when specified as a Git dependency
+      - name: "Install GVB"
+        run: gem install git-version-bump
+      # Run bundle install now that git-version-bump is available. Normally this is handled by ruby/setup-ruby@v1
+      # with bundler-cache=true
+      - name: "Install dependencies"
+        run: bundle install
+      - name: "Install default uri gem version"
+        run: gem install --default -v0.11.0 uri
+      - name: Run the tests
+        run: bundle exec rake spec
