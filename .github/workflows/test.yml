@@ -1,0 +1,23 @@
+name: "StashRB: Test"
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+jobs:
+  run-specs:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Due to https://github.com/actions/runner/issues/849, we have to use quotes for '3.0'
+        ruby-version: ['2.7', '3.0', '3.1']
+    env:
+      RSPEC_FULL_BACKTRACE: yes
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+      - name: Run the tests
+        run: bundle exec rake test
