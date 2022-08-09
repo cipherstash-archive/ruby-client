@@ -79,6 +79,7 @@ module CipherStash
                     id: blob_from_uuid(idx[:meta]["$indexId"]),
                     settings: encrypt_blob(idx.to_cbor, "createCollection"),
                     type: index_type(idx[:mapping]["kind"]),
+                    unique: idx[:mapping]["unique"]
                   }
                 end
               )
@@ -103,6 +104,7 @@ module CipherStash
                     id: blob_from_uuid(idx[:meta]["$indexId"]),
                     settings: encrypt_blob(idx.to_cbor, "migrateCollection"),
                     type: index_type(idx[:mapping]["kind"]),
+                    unique: idx[:mapping]["unique"]
                   }
                 end,
                 fromSchemaVersion: from_schema_version
@@ -158,6 +160,8 @@ module CipherStash
         uuid_from_blob(id)
       rescue ::GRPC::NotFound
         raise Error::RecordPutFailure, "Collection '#{collection.name}' not found"
+      rescue ::GRPC::InvalidArgument => ex
+        raise Error::RecordPutFailure, "Error while putting record into collection '#{collection.name}': #{ex.message} (#{ex.class})"
       rescue ::GRPC::BadStatus => ex
         raise Error::RecordPutFailure, "Error while putting records into collection '#{collection.name}': #{ex.message} (#{ex.class})"
       end
@@ -278,7 +282,11 @@ module CipherStash
 
         res.numInserted
       rescue ::GRPC::NotFound
-        raise Error::RecordDeleteFailure, "Collection '#{collection.name}' not found"
+        raise Error::RecordPutFailure, "Collection '#{collection.name}' not found"
+      rescue ::GRPC::InvalidArgument => ex
+        raise Error::RecordPutFailure, "Error while putting records into collection '#{collection.name}': #{ex.message} (#{ex.class})"
+      rescue ::GRPC::BadStatus => ex
+        raise Error::RecordPutFailure, "Error while putting records into collection '#{collection.name}': #{ex.message} (#{ex.class})"
       end
 
       def delete(collection, id)

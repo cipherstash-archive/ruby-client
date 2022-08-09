@@ -27,6 +27,10 @@ module CipherStash
           false
         end
 
+        def self.uniqueness_supported?
+          false
+        end
+
         def analyze(uuid, record)
           blid = blob_from_uuid(uuid)
 

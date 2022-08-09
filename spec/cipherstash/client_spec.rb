@@ -167,5 +167,70 @@ describe CipherStash::Client do
         end
       end
     end
+
+    ["exact", "range"].each do |input_kind|
+      context "given a schema with a #{input_kind} index" do
+        def schema(kind)
+          mapping = {
+            "kind" => kind,
+            "field" => "title",
+            "unique" => true
+          }
+
+          {
+            "type" => {"title" => "string"},
+            "indexes" => {
+              "exactTitle" => mapping,
+            },
+          }
+        end
+
+        it "can specify field as unique" do
+          schema = schema(input_kind)
+
+          expect(rpc).to receive(:create_collection).with(
+            anything,
+            anything,
+            array_including(hash_including(mapping: hash_including("unique" => true)))
+          )
+
+          client.create_collection("name", schema)
+        end
+      end
+    end
+
+    [
+      "match",
+      "ore-match",
+      "filter-match",
+      "field-dynamic-match",
+      "field-dynamic-filter-match",
+      "field-dynamic-ore-match",
+      "dynamic-match",
+      "dynamic-filter-match",
+      "dynamic-ore-match"].each do |input_kind|
+      context "given a schema with a #{input_kind} index" do
+        def schema(kind)
+          mapping = {
+            "kind" => kind,
+            "field" => "title",
+            "unique" => true
+          }
+
+          {
+            "type" => {"title" => "string"},
+            "indexes" => {
+              "title" => mapping,
+            },
+          }
+        end
+
+        it "can not specify field as unique" do
+          schema = schema(input_kind)
+
+          expect { client.create_collection("name", schema) }.to raise_error(CipherStash::Client::Error::InvalidSchemaError)
+        end
+      end
+    end
   end
-end
+end 
