@@ -35,19 +35,6 @@ module CipherStash
         end
       end
 
-      def invalid_unique_constraint?(unique, kind)
-        [
-          "match",
-          "ore-match",
-          "filter-match",
-          "field-dynamic-match",
-          "field-dynamic-filter-match",
-          "field-dynamic-ore-match",
-          "dynamic-match",
-          "dynamic-filter-match",
-          "dynamic-ore-match"].include?(kind) && unique
-      end
-
       def generate(id, settings, schema_versions)
         subclass = subclass_from_kind(settings["mapping"]["kind"])
         subclass.new(id, settings, schema_versions)
@@ -55,6 +42,10 @@ module CipherStash
 
       def settings(name, base_settings, schema)
         subclass = subclass_from_kind(base_settings["kind"])
+
+        if base_settings.key?("unique") && !subclass.uniqueness_supported?
+          raise CipherStash::Client::Error::InvalidSchemaError, "Unique constraint not allowed on type #{base_settings["kind"].inspect}" 
+        end
 
         {
           meta: subclass.meta(name),
@@ -142,6 +133,14 @@ module CipherStash
     def orderable?
       # Most indexes don't support ordering; it's an opt-in thing for those
       # that do
+      false
+    end
+    
+    # Does this index support a unique constraint?
+    #
+    # @return [bool]
+    #
+    def uniqueness_supported?
       false
     end
 
