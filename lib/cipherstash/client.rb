@@ -145,6 +145,8 @@ module CipherStash
     #
     # @raise [CipherStash::Client::Error::DecryptionFailure] if there was a problem decrypting the naming key.
     #
+    # @raise [CipherStash::Client::Error::InvalidSchemaError] if there was a problem with the format of the schema.
+    #
     def create_collection(name, schema)
       @metrics.measure_client_call("create_collection") do
         metadata = {
