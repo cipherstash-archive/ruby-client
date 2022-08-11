@@ -161,7 +161,7 @@ module CipherStash
       rescue ::GRPC::NotFound
         raise Error::RecordPutFailure, "Collection '#{collection.name}' not found"
       rescue ::GRPC::InvalidArgument => ex
-        raise Error::RecordPutFailure, "Error while putting record into collection '#{collection.name}': #{ex.message} (#{ex.class})"
+        raise Error::RecordPutError, "Error while putting record into collection '#{collection.name}': #{ex.message} (#{ex.class})"
       rescue ::GRPC::BadStatus => ex
         raise Error::RecordPutFailure, "Error while putting records into collection '#{collection.name}': #{ex.message} (#{ex.class})"
       end
@@ -284,7 +284,7 @@ module CipherStash
       rescue ::GRPC::NotFound
         raise Error::RecordPutFailure, "Collection '#{collection.name}' not found"
       rescue ::GRPC::InvalidArgument => ex
-        raise Error::RecordPutFailure, "Error while putting records into collection '#{collection.name}': #{ex.message} (#{ex.class})"
+        raise Error::RecordPutError, "Error while putting records into collection '#{collection.name}': #{ex.message} (#{ex.class})"
       rescue ::GRPC::BadStatus => ex
         raise Error::RecordPutFailure, "Error while putting records into collection '#{collection.name}': #{ex.message} (#{ex.class})"
       end
