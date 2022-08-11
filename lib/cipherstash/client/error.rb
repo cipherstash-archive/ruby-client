@@ -67,6 +67,9 @@ module CipherStash
       # An error occured while migration records.
       class RecordMigrateFailure < Error; end
 
+      # A client error occured while storing a record.
+      class RecordPutError < Error; end
+
       # A query constraint was specified incorrectly.
       #
       # Either a non-existent index was referenced, or an operator was specified that is not supported on the given index.
