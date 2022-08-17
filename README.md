@@ -116,6 +116,10 @@ Multiple constraints will be `AND`ed together, and so the above query will not r
 The [auto-generated API documentation](https://rubydoc.info/gems/cipherstash-client) should provide complete documentation of all public methods and classes.
 
 
+# Need help?
+
+Head over to our [support forum](https://discuss.cipherstash.com/), and we'll get back to you super quick! 
+
 
 # Contributing
 
