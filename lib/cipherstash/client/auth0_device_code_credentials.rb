@@ -148,9 +148,17 @@ module CipherStash
       def prompt_user(polling_info)
         code = polling_info[:user_code]
 
-        Launchy.open polling_info[:verification_uri_complete]
+        begin
+          Launchy.open polling_info[:verification_uri_complete]
+        rescue Launchy::Error
+          # We could be running in a headless environment, in which case, the user should just open the url in a browser on a separate machine
+          @logger.debug("Auth0DeviceCodeCredentials#prompt_user") { "Unable to launch URL in browser" }
+        end
 
         puts <<~EOF
+        
+          ### ACTION REQUIRED ###
+                  
           Visit \e[92m#{polling_info[:verification_uri_complete]}\e[0m to complete authentication by following the below steps:
 
           1. Verify that this code matches the code in your browser
