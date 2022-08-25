@@ -152,7 +152,7 @@ module CipherStash
           Launchy.open polling_info[:verification_uri_complete]
         rescue Launchy::Error
           # We could be running in a headless environment, in which case, the user should just open the url in a browser on a separate machine
-          @logger.debug("Auth0DeviceCodeCredentials#prompt_user") { "Unable to launch url in browser" }
+          @logger.debug("Auth0DeviceCodeCredentials#prompt_user") { "Unable to launch URL in browser" }
         end
 
         puts <<~EOF
