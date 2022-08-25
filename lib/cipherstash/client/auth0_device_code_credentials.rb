@@ -156,6 +156,9 @@ module CipherStash
         end
 
         puts <<~EOF
+        
+          ### ACTION REQUIRED ###
+                  
           Visit \e[92m#{polling_info[:verification_uri_complete]}\e[0m to complete authentication by following the below steps:
 
           1. Verify that this code matches the code in your browser
