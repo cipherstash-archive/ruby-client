@@ -75,6 +75,11 @@ module CipherStash
       end
 
       def self.create(name, logger, **opts)
+        puts "###### name #########"
+        p name
+
+        puts "******* opts *********"
+        p opts
         begin
           Dir.mkdir(File.expand_path("~/.cipherstash"))
           logger.debug("CipherStash::Client::Profile.create") { "Created ~/.cipherstash" }
@@ -89,7 +94,40 @@ module CipherStash
           Dir.mkdir(File.expand_path("~/.cipherstash/#{name}"))
           logger.debug("CipherStash::Client::Profile.create") { "Created ~/.cipherstash/#{name}" }
         rescue Errno::EEXIST
-          raise Error::CreateProfileFailure, "Could not create profile #{name.inspect}: already exists"
+          if name == "default"
+            # Does the provided workspace id match the default profile workspace id.
+            incoming_workspace_id = opts[:workspace]
+            puts "@@@ workspace id @@@@@"
+            puts incoming_workspace_id
+            profile_config = File.read(File.expand_path("~/.cipherstash/#{name}/profile-config.json"))
+            
+            parsed_profile_config = JSON.parse(profile_config)
+
+            default_profile_workspace_id = parsed_profile_config["service"]["workspace"]
+
+            puts "######### default profile workspace id======="
+            puts default_profile_workspace_id
+
+            if incoming_workspace_id == default_profile_workspace_id
+              raise Error::CreateProfileFailure, "Could not create profile #{name.inspect}: already exists"
+            else
+              puts "updating default profile"
+              logger.debug("CipherStash::Client::Profile.create") { "~/.cipherstash/#{name} exists with with Workspace ID: #{default_profile_workspace_id}. Updating default profile to use Workspace ID: #{incoming_workspace_id}." }
+            end
+          else
+            raise Error::CreateProfileFailure, "Could not create profile #{name.inspect}: already exists"
+          end
+          # The default profile name coming through from ActiveStash will be "default" if an env var is not provided for CS_PROFILE_NAME
+          # A user could provide a workspace id at login that is different to the workspace id in the default profile
+          # Which will mean, it raises an error here because a default profile already exists.
+          # The default profile doesn't get updated.
+          # There isn't a way to update the default profile to use the provided workspace id as the default profile.
+
+          # If name is default
+          # Does the provided workspace id align with the workspace id in the default profile.
+          # If so, provide error saying profile already exists
+          # If not, update default profile to use provided workspace id.
+
         rescue => ex
           raise Error::CreateProfileFailure, "Could not create profile directory ~/.cipherstash/#{name}: #{ex.message} (#{ex.class})"
         end
