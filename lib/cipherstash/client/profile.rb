@@ -394,11 +394,7 @@ module CipherStash
       # @see #with_kms_credentials because it has a more in-depth explanation of what's going on and why.
       #
       def with_access_token(&blk)
-        puts "block======="
-        p blk
         @access_token_creds_provider ||= access_token_provider(**symbolize_keys(identity_provider_config))
-        p identity_provider_config
-        p @access_token_creds_provider
 
         if blk.nil?
           @access_token_creds_provider.fresh_credentials
@@ -542,7 +538,6 @@ module CipherStash
           when "Auth0-AccessToken"
             access_token_static_credentials(**opts)
           when "Auth0-DeviceCode"
-            puts "hitting auth0 device code-----------"
             access_token_device_code_credentials(**opts)
           when "Console-AccessKey"
             access_token_console_access_key_credentials(**opts)
@@ -563,12 +558,7 @@ module CipherStash
       #
       # If the token can't be read for any reason, just return a null token, because you're supposed to refresh the token if it's out-of-date anyway.
       def cached_token
-        puts "self -----------"
-        p self
-        test = JSON.parse(File.read(file_path("auth-token.json")))
-        puts "auth token json #########"
-        p test
-        test
+        JSON.parse(File.read(file_path("auth-token.json")))
       rescue
         { "accessToken": "", "refreshToken": "", expiry: 0 }
       end
