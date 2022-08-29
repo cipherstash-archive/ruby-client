@@ -75,11 +75,6 @@ module CipherStash
       end
 
       def self.create(name, logger, **opts)
-        puts "###### name #########"
-        p name
-
-        puts "******* opts *********"
-        p opts
         begin
           Dir.mkdir(File.expand_path("~/.cipherstash"))
           logger.debug("CipherStash::Client::Profile.create") { "Created ~/.cipherstash" }
@@ -95,44 +90,32 @@ module CipherStash
           logger.debug("CipherStash::Client::Profile.create") { "Created ~/.cipherstash/#{name}" }
         rescue Errno::EEXIST
           if name == "default"
-            # Does the provided workspace id match the default profile workspace id.
             incoming_workspace_id = opts[:workspace]
-            puts "@@@ workspace id @@@@@"
-            puts incoming_workspace_id
+
+
             profile_config = File.read(File.expand_path("~/.cipherstash/#{name}/profile-config.json"))
-            
             parsed_profile_config = JSON.parse(profile_config)
 
             default_profile_workspace_id = parsed_profile_config["service"]["workspace"]
 
-            puts "######### default profile workspace id======="
-            puts default_profile_workspace_id
-
             if incoming_workspace_id == default_profile_workspace_id
               raise Error::CreateProfileFailure, "Could not create profile #{name.inspect}: already exists"
             else
-              puts "updating default profile"
-              logger.debug("CipherStash::Client::Profile.create") { "~/.cipherstash/#{name} exists with with Workspace ID: #{default_profile_workspace_id}. Updating default profile to use Workspace ID: #{incoming_workspace_id}." }
+              logger.debug("CipherStash::Client::Profile.create") { "~/.cipherstash/#{name} created with Workspace ID: #{default_profile_workspace_id}. Updating #{name} profile to use Workspace ID: #{incoming_workspace_id}." }
             end
           else
             raise Error::CreateProfileFailure, "Could not create profile #{name.inspect}: already exists"
           end
-          # The default profile name coming through from ActiveStash will be "default" if an env var is not provided for CS_PROFILE_NAME
-          # A user could provide a workspace id at login that is different to the workspace id in the default profile
-          # Which will mean, it raises an error here because a default profile already exists.
-          # The default profile doesn't get updated.
-          # There isn't a way to update the default profile to use the provided workspace id as the default profile.
-
-          # If name is default
-          # Does the provided workspace id align with the workspace id in the default profile.
-          # If so, provide error saying profile already exists
-          # If not, update default profile to use provided workspace id.
 
         rescue => ex
           raise Error::CreateProfileFailure, "Could not create profile directory ~/.cipherstash/#{name}: #{ex.message} (#{ex.class})"
         end
 
         begin
+          if name == "default" && File.exists?(File.expand_path("~/.cipherstash/#{name}/auth-token.json"))
+            File.delete(File.expand_path("~/.cipherstash/#{name}/auth-token.json"))
+          end
+
           File.write(File.expand_path("~/.cipherstash/#{name}/profile-config.json"), default_profile.to_json)
           logger.debug("CipherStash::Client::Profile.create") { "Wrote ~/.cipherstash/#{name}/profile-config.json" }
         rescue => ex
@@ -411,7 +394,11 @@ module CipherStash
       # @see #with_kms_credentials because it has a more in-depth explanation of what's going on and why.
       #
       def with_access_token(&blk)
+        puts "block======="
+        p blk
         @access_token_creds_provider ||= access_token_provider(**symbolize_keys(identity_provider_config))
+        p identity_provider_config
+        p @access_token_creds_provider
 
         if blk.nil?
           @access_token_creds_provider.fresh_credentials
@@ -555,6 +542,7 @@ module CipherStash
           when "Auth0-AccessToken"
             access_token_static_credentials(**opts)
           when "Auth0-DeviceCode"
+            puts "hitting auth0 device code-----------"
             access_token_device_code_credentials(**opts)
           when "Console-AccessKey"
             access_token_console_access_key_credentials(**opts)
@@ -575,7 +563,12 @@ module CipherStash
       #
       # If the token can't be read for any reason, just return a null token, because you're supposed to refresh the token if it's out-of-date anyway.
       def cached_token
-        JSON.parse(File.read(file_path("auth-token.json")))
+        puts "self -----------"
+        p self
+        test = JSON.parse(File.read(file_path("auth-token.json")))
+        puts "auth token json #########"
+        p test
+        test
       rescue
         { "accessToken": "", "refreshToken": "", expiry: 0 }
       end
