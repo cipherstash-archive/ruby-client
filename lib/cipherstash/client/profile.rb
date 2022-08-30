@@ -89,12 +89,33 @@ module CipherStash
           Dir.mkdir(File.expand_path("~/.cipherstash/#{name}"))
           logger.debug("CipherStash::Client::Profile.create") { "Created ~/.cipherstash/#{name}" }
         rescue Errno::EEXIST
-          raise Error::CreateProfileFailure, "Could not create profile #{name.inspect}: already exists"
+          if name == "default"
+            incoming_workspace_id = opts[:workspace]
+
+
+            profile_config = File.read(File.expand_path("~/.cipherstash/#{name}/profile-config.json"))
+            parsed_profile_config = JSON.parse(profile_config)
+
+            default_profile_workspace_id = parsed_profile_config["service"]["workspace"]
+
+            if incoming_workspace_id == default_profile_workspace_id
+              raise Error::CreateProfileFailure, "Could not create profile #{name.inspect}: already exists"
+            else
+              logger.debug("CipherStash::Client::Profile.create") { "~/.cipherstash/#{name} created with Workspace ID: #{default_profile_workspace_id}. Updating #{name} profile to use Workspace ID: #{incoming_workspace_id}." }
+            end
+          else
+            raise Error::CreateProfileFailure, "Could not create profile #{name.inspect}: already exists"
+          end
+
         rescue => ex
           raise Error::CreateProfileFailure, "Could not create profile directory ~/.cipherstash/#{name}: #{ex.message} (#{ex.class})"
         end
 
         begin
+          if name == "default" && File.exists?(File.expand_path("~/.cipherstash/#{name}/auth-token.json"))
+            File.delete(File.expand_path("~/.cipherstash/#{name}/auth-token.json"))
+          end
+
           File.write(File.expand_path("~/.cipherstash/#{name}/profile-config.json"), default_profile.to_json)
           logger.debug("CipherStash::Client::Profile.create") { "Wrote ~/.cipherstash/#{name}/profile-config.json" }
         rescue => ex
