@@ -2,10 +2,10 @@ require "logger"
 
 require_relative "./access_key"
 require_relative "./client/console"
-require_relative "./client/hash_helper"
 require_relative "./client/metrics"
 require_relative "./client/profile"
 require_relative "./client/rpc"
+require_relative "./hash_helpers"
 
 # Top-level module for all things CipherStash.
 module CipherStash
@@ -14,7 +14,7 @@ module CipherStash
   # This is the only thing you should ever need to explicitly instantiate in order to use CipherStash from Ruby.
   #
   class Client
-    include HashHelper
+    include HashHelpers
 
     # A known-unique value that we can use in argument lists to ensure that the value was not given by the user.
     class Unspecified; end

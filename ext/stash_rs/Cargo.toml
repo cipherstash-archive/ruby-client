@@ -1,0 +1,13 @@
+[package]
+name = "stash_rs"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+cipherstash-client = "0.3"
+lazy_static = "^0.2.2"
+rb-sys = "0.8.0"
+rutie = { git = "https://github.com/mpalmer/rutie", branch = "rb_sys" }
+
+[lib]
+crate-type = ["cdylib"]

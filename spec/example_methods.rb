@@ -63,15 +63,4 @@ module ExampleMethods
       }
     }
   end
-
-  def nested_set(h, k, v)
-    f, r = k.split(".", 2)
-    if r.nil?
-      h[k] = v
-    else
-      h[f] ||= {}
-      h[f] = nested_set(h[f], r, v)
-    end
-    h
-  end
 end

@@ -92,7 +92,6 @@ describe CipherStash::Client do
       it "registers the client start time" do
         expect(metrics).to respond_to(:[])
         expect(metrics[:creation_timestamp_seconds]).to be_a(Hash)
-        p metrics[:creation_timestamp_seconds]
         expect(metrics[:creation_timestamp_seconds][{}]).to be_within(0.1).of(Time.now.to_f)
       end
     end
@@ -233,4 +232,4 @@ describe CipherStash::Client do
       end
     end
   end
-end 
+end

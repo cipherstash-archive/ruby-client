@@ -364,7 +364,7 @@ module CipherStash
               @logger.warn("CipherStash::Client::RPC#decrypt_collection_info") { "Failed to decrypt index #{uuid_from_blob(idx.id)}: #{ex.message} (#{ex.class})" }
               nil
             end
-          end,
+          end.compact,
           schema_versions: {
             current: info.currentSchemaVersion,
             first_active: info.firstActiveSchemaVersion,

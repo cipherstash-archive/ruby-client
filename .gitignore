@@ -3,5 +3,8 @@ Gemfile.lock
 /doc
 /.yardoc
 /coverage
+/tmp
+/lib/**/*.so
+/lib/**/*.dylib
 
 .envrc

@@ -9,7 +9,7 @@ module CipherStash
         INDEX_OPS = {
           "match" => -> (idx, field, s) do
             terms = idx.text_processor.perform(s).map { |term| "#{field}:#{term}" }
-            filter = BloomFilter.new(idx.meta_settings["$filterKey"], idx.mapping_settings).add(terms)
+            filter = BloomFilter.new(idx.filter_key, idx.mapping_settings).add(terms)
 
             [{ indexId: idx.binid, filter: { bits: filter.to_a } }]
           end,
@@ -40,7 +40,7 @@ module CipherStash
               .flatten
               .uniq
 
-            filter = BloomFilter.new(meta_settings["$filterKey"], mapping_settings).add(terms)
+            filter = BloomFilter.new(filter_key, mapping_settings).add(terms)
 
             { indexId: binid, terms: [{ bits: filter.to_a, link: blid }] }
           end

@@ -1,7 +1,9 @@
 require "logger"
 require "securerandom"
 
+require_relative "../stash_rs"
 require_relative "./collection/query"
+require_relative "./hash_helpers"
 
 module CipherStash
   # A group of similar records stored in the CipherStash searchable encrypted data store.
@@ -10,6 +12,9 @@ module CipherStash
   # Instead, instances of this class are created by calling CipherStash::Client#collection or CipherStash::Client#collections.
   #
   class Collection
+    include HashHelpers
+    include UUIDHelpers
+
     # @return [String] collection UUID, in human-readable form
     #
     # @private
@@ -61,7 +66,7 @@ module CipherStash
 
         uuid = SecureRandom.uuid
 
-        vectors = @indexes.map { |idx| idx.analyze(uuid, record) }.compact
+        vectors = indexer.encrypt(uuid, record)
         @rpc.put(self, uuid, record, vectors)
 
         uuid
@@ -101,7 +106,7 @@ module CipherStash
           raise ArgumentError, "Must provide a string ID"
         end
 
-        vectors = @indexes.map { |idx| idx.analyze(id, record) }.compact
+        vectors = indexer.encrypt(id, record)
         @rpc.put(self, id, store_record ? record : nil, vectors)
 
         true
@@ -161,7 +166,7 @@ module CipherStash
             unless r.is_a?(Hash) && r.key?(:id) && r.key?(:record)
               raise ArgumentError, "Malformed record passed to streaming_upsert: #{r.inspect}"
             end
-            vectors = @indexes.map { |idx| idx.analyze(r[:id], r[:record]) }.compact
+            vectors = indexer.encrypt(r[:id], r[:record])
             [r[:id], r[:record], vectors]
           end
         end
@@ -353,7 +358,7 @@ module CipherStash
     def migrate_records
       @metrics.measure_client_call("migrate_records") do
         @rpc.migrate_records(self) do |uuid, data|
-          indexes.map { |idx| idx.analyze(uuid, data) }.compact
+          indexer.encrypt(uuid, data)
         end
 
         true
@@ -375,6 +380,8 @@ module CipherStash
         @indexes = new_collection.indexes
         @schema_versions = new_collection.schema_versions
 
+        @indexer = nil
+
         true
       end
     end
@@ -389,7 +396,7 @@ module CipherStash
     #   the specified name exists, or `nil` otherwise
     #
     def index_named(name)
-      @indexes.find { |idx| idx.name == name }
+      indexes.find { |idx| idx.name == name }
     end
 
     # Get all the indexes defined on the collection
@@ -439,6 +446,34 @@ module CipherStash
     #
     def last_active_schema_version
       @schema_versions[:last_active]
+    end
+
+    private
+
+    def indexer
+      @indexer ||= StashRs::RecordIndexer.new(indexer_schema)
+    end
+
+    def indexer_schema
+      { type: {}, indexes: {} }.tap do |schema|
+        indexes.each do |idx|
+          if idx.mapping_settings["field"]
+            nested_set(schema[:type], idx.mapping_settings["field"], idx.mapping_settings["fieldType"])
+          elsif idx.mapping_settings["fields"]
+            idx.mapping_settings["fields"].each do |f|
+              nested_set(schema[:type], f, idx.mapping_settings["fieldType"])
+            end
+          end
+
+          schema[:indexes][idx.meta_settings["$indexName"]] = {
+            mapping: idx.mapping_settings,
+            index_id: idx.binid,
+            prf_key: idx.prf_key,
+            prp_key: idx.prp_key,
+            filter_key: idx.filter_key,
+          }.compact
+        end
+      end
     end
   end
 end

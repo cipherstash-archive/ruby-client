@@ -9,7 +9,7 @@ require_relative "./aws_federated_credentials"
 require_relative "./console_access_key_credentials"
 require_relative "./console"
 require_relative "./creds_proxy"
-require_relative "./hash_helper"
+require_relative "../hash_helpers"
 
 module CipherStash
   class Client
@@ -17,7 +17,7 @@ module CipherStash
     #
     # @private
     class Profile
-      include HashHelper
+      include HashHelpers
 
       ENV_OPT_MAPPING = {
         "CS_PROFILE_NAME"            => :profileName,
@@ -107,6 +107,8 @@ module CipherStash
       end
 
       class << self
+        include HashHelpers
+
         private
 
         # Figure out what profile name we're supposed to be loading.
@@ -302,21 +304,6 @@ module CipherStash
           end
 
           data
-        end
-
-        def nested_set(h, k, v)
-          f, r = k.split(".", 2)
-          if r.nil?
-            if v.nil?
-              h.delete(k)
-            else
-              h[k] = v
-            end
-          else
-            h[f] ||= {}
-            h[f] = nested_set(h[f], r, v)
-          end
-          h
         end
 
         def file_path(p, f)

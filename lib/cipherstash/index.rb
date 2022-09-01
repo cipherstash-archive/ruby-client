@@ -44,7 +44,7 @@ module CipherStash
         subclass = subclass_from_kind(base_settings["kind"])
 
         if base_settings.key?("unique") && !subclass.uniqueness_supported?
-          raise CipherStash::Client::Error::InvalidSchemaError, "Unique constraint not allowed on type #{base_settings["kind"].inspect}" 
+          raise CipherStash::Client::Error::InvalidSchemaError, "Unique constraint not allowed on type #{base_settings["kind"].inspect}"
         end
 
         {
@@ -135,7 +135,7 @@ module CipherStash
       # that do
       false
     end
-    
+
     # Does this index support a unique constraint?
     #
     # @return [bool]
@@ -202,12 +202,26 @@ module CipherStash
       @settings["mapping"] === other[:mapping]
     end
 
+    def prf_key
+      @prf_key ||= meta_settings["$prfKey"].nil? ? nil : [meta_settings["$prfKey"]].pack("H*")
+    end
+
+    def prp_key
+      @prp_key ||= meta_settings["$prpKey"].nil? ? nil : [meta_settings["$prpKey"]].pack("H*")
+    end
+
+    def filter_key
+      @filter_key ||= meta_settings["$filterKey"].nil? ? nil : meta_settings["$filterKey"]].pack("H*")
+    end
+
+    def kind
+      self.class.to_s.split("::").last.gsub(/[a-z][A-Z]/) { |x| "#{x[0]}-#{x[1]}" }.downcase
+    end
+
     private
 
     def ore
-      @ore ||= begin
-                 ORE::AES128.new([@settings["meta"]["$prfKey"]].pack("H*"), [@settings["meta"]["$prpKey"]].pack("H*"), 64, 8)
-               end
+      @ore ||= ORE::AES128.new(prf_key, prp_key, 64, 8)
     end
 
     def collect_string_fields(record, prefix = "")

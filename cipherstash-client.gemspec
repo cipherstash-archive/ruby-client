@@ -7,8 +7,8 @@ end
 Gem::Specification.new do |s|
   s.name = "cipherstash-client"
 
-  s.version = GVB.version rescue "0.0.0.1.NOGVB"
-  s.date    = GVB.date    rescue Time.now.strftime("%Y-%m-%d")
+  s.version = ENV.fetch("GVB_VERSION_OVERRIDE") { GVB.version rescue "0.0.0.1.NOGVB" }
+  s.date    = GVB.date rescue Time.now.strftime("%Y-%m-%d")
 
   s.platform = Gem::Platform::RUBY
 
@@ -19,6 +19,8 @@ Gem::Specification.new do |s|
   s.homepage = "https://cipherstash.com"
 
   s.files = `git ls-files -z`.split("\0").reject { |f| f =~ /^(G|spec|Rakefile)/ }
+
+  s.extensions = ["ext/stash_rs/extconf.rb"]
 
   s.required_ruby_version = ">= 2.7.0"
 
@@ -37,12 +39,19 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "launchy", "~> 2.5"
   s.add_runtime_dependency "ore-rs", "~> 0.0"
 
+  unless ENV.key?("GVB_VERSION_OVERRIDE")
+    s.add_runtime_dependency 'rb_sys', '~> 0.1'
+  end
+
   s.add_development_dependency 'bundler'
   s.add_development_dependency 'fakefs'
   s.add_development_dependency 'github-release'
   s.add_development_dependency 'guard-rspec'
   s.add_development_dependency 'rake', '~> 13.0'
+  s.add_development_dependency 'rake-compiler', '~> 1.2'
+  s.add_development_dependency 'rake-compiler-dock', '~> 1.2'
   s.add_development_dependency 'rb-inotify', '~> 0.9'
+  s.add_development_dependency 'rb_sys', '~> 0.1'
   s.add_development_dependency 'redcarpet'
   s.add_development_dependency 'rspec'
   s.add_development_dependency 'simplecov'
