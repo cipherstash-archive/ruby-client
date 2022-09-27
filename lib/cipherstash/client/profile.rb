@@ -92,7 +92,6 @@ module CipherStash
           if name == "default"
             incoming_workspace_id = opts[:workspace]
 
-
             profile_config = File.read(File.expand_path("~/.cipherstash/#{name}/profile-config.json"))
             parsed_profile_config = JSON.parse(profile_config)
 
@@ -125,6 +124,17 @@ module CipherStash
         profile = Profile.load(name, logger, **opts)
         profile.refresh_from_console
         profile.save
+      end
+
+      def self.log_in(workspace:, profile_name:, logger:)
+        is_initial_log_in = !workspace.nil?
+        profile_name = resolve_profile_name(profile_name)
+
+        if is_initial_log_in
+          create(profile_name, logger, workspace: workspace)
+        else
+          load(profile_name, logger).log_in
+        end
       end
 
       class << self
@@ -528,6 +538,13 @@ module CipherStash
         else
           raise Error::InvalidProfileError, "Unrecognised value for keyManagement.kind: #{@data["keyManagement"]["kind"].inspect}"
         end
+      end
+
+      def log_in
+        access_token_creds_provider = access_token_provider(**symbolize_keys(identity_provider_config))
+        access_token_creds_provider.fresh_credentials
+
+        self
       end
 
       private
