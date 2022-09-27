@@ -31,6 +31,26 @@ module CipherStash
       Profile.profile_options
     end
 
+
+    # Log into a CipherStash workspace.
+    #
+    # If `workspace` is given, a profile will be created for that workspace.
+    # This is useful for logging into a workspace for the first time.
+    #
+    # If a workspace is not provided, this command will load an existing profile and then log in using that profile.
+    # The profile name defaults to "default", but can be overridden with the `CS_PROFILE_NAME` env var or the `defaultProfile` opt in `{cs_config_path}/config.json`.
+    #
+    # @return [TrueClass]
+    #
+    # @raise [CipherStash::Client::Error::CreateProfileFailure] if a workspace is given and a new profile could not be created.
+    #
+    # @raise [CipherStash::Client::Error::LoadProfileFailure] if a workspace is not given and an existing profile could not be loaded.
+    #
+    def self.login(workspace: nil, profile_name: nil, logger: default_logger)
+      Profile.login(workspace: workspace, profile_name: profile_name, logger: logger)
+      true
+    end
+
     # Create a new CipherStash client.
     #
     # No options are necessary in the common case.
@@ -79,7 +99,7 @@ module CipherStash
     #
     def initialize(profileName: Unspecified, logger: Unspecified, metrics: Metrics::Null.new, rpc_class: RPC, **opts)
       @logger = if logger == Unspecified
-                  Logger.new($stderr).tap { |l| l.level = Logger::WARN; l.formatter = ->(_, _, _, m) { "#{m}\n" } }
+                  self.class.default_logger
                 else
                   logger
                 end
@@ -248,6 +268,13 @@ module CipherStash
     end
 
     private
+
+    def self.default_logger
+      Logger.new($stderr).tap do |l|
+        l.level = Logger::WARN
+        l.formatter = ->(_, _, _, m) { "#{m}\n" }
+      end
+    end
 
     def console
       @profile.with_access_token do |token|
