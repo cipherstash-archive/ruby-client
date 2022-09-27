@@ -46,8 +46,8 @@ module CipherStash
     #
     # @raise [CipherStash::Client::Error::LoadProfileFailure] if a workspace is not given and an existing profile could not be loaded.
     #
-    def self.log_in(workspace: nil, profile_name: nil, logger: default_logger)
-      Profile.log_in(workspace: workspace, profile_name: profile_name, logger: logger)
+    def self.login(workspace: nil, profile_name: nil, logger: default_logger)
+      Profile.login(workspace: workspace, profile_name: profile_name, logger: logger)
       true
     end
 

@@ -126,14 +126,14 @@ module CipherStash
         profile.save
       end
 
-      def self.log_in(workspace:, profile_name:, logger:)
-        is_initial_log_in = !workspace.nil?
+      def self.login(workspace:, profile_name:, logger:)
+        is_initial_login = !workspace.nil?
         profile_name = resolve_profile_name(profile_name)
 
-        if is_initial_log_in
+        if is_initial_login
           create(profile_name, logger, workspace: workspace)
         else
-          load(profile_name, logger).log_in
+          load(profile_name, logger).login
         end
       end
 
@@ -540,7 +540,7 @@ module CipherStash
         end
       end
 
-      def log_in
+      def login
         access_token_creds_provider = access_token_provider(**symbolize_keys(identity_provider_config))
         access_token_creds_provider.fresh_credentials
 
