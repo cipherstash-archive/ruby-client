@@ -128,7 +128,7 @@ module CipherStash
 
       def self.login(workspace:, profile_name:, logger:)
         is_initial_login = !workspace.nil?
-        profile_name = resolve_profile_name(profile_name)
+        profile_name = resolve_profile_name(profile_name) || "default"
 
         if is_initial_login
           create(profile_name, logger, workspace: workspace)
