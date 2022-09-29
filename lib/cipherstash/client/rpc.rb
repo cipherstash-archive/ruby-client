@@ -270,17 +270,23 @@ module CipherStash
         # isn't the most idiomatic code on earth...
         requests = [[begin_request], records].lazy.flat_map { |x| x }
 
-        res = @metrics.measure_rpc_call("putStream") do
-          stub.put_stream(requests, metadata: rpc_headers)
+        num_inserted = 0
+        @logger.info("Cipherstash::Client::RPC#put_stream") { "Start streaming upsert of documents..." }
+
+        @metrics.measure_rpc_call("putStream") do
+          stub.put_stream_bi_direction(requests, metadata: rpc_headers).each do |res|
+            unless res.is_a?(Documents::StreamingPutReply)
+              raise Error::StreamingPutFailure, "expected Documents::StreamingPutReply response, got #{res.class} instead"
+            end
+            @logger.info("Cipherstash::Client::RPC#put_stream") { "#{res.numInserted} records inserted." }
+
+            num_inserted = res.numInserted
+          end
         end
 
-        unless res.is_a?(Documents::StreamingPutReply)
-          raise Error::StreamingPutFailure, "expected Documents::StreamingPutReply response, got #{res.class} instead"
-        end
+        @logger.info("Cipherstash::Client::RPC#put_stream") { "Streaming upsert complete. Number of records inserted: #{res.numInserted}" }
 
-        raise_if_error(res)
-
-        res.numInserted
+        num_inserted
       rescue ::GRPC::NotFound
         raise Error::RecordPutFailure, "Collection '#{collection.name}' not found"
       rescue ::GRPC::InvalidArgument => ex
