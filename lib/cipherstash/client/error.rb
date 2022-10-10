@@ -61,6 +61,9 @@ module CipherStash
       # An error occured while deleting a record.
       class RecordDeleteFailure < RPCFailure; end
 
+      # An error occured while storing records.
+      class StreamingPutFailure < RPCFailure; end
+
       # An error occured while executing a query.
       class DocumentQueryFailure < RPCFailure; end
 
@@ -69,6 +72,9 @@ module CipherStash
 
       # A client error occured while storing a record.
       class RecordPutError < Error; end
+
+      # A client error occured while storing records.
+      class StreamingPutError < Error; end
 
       # A query constraint was specified incorrectly.
       #

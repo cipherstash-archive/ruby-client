@@ -282,11 +282,11 @@ module CipherStash
 
         res.numInserted
       rescue ::GRPC::NotFound
-        raise Error::RecordPutFailure, "Collection '#{collection.name}' not found"
+        raise Error::StreamingPutFailure, "Collection '#{collection.name}' not found"
       rescue ::GRPC::InvalidArgument => ex
-        raise Error::RecordPutError, "Error while putting records into collection '#{collection.name}': #{ex.message} (#{ex.class})"
+        raise Error::StreamingPutError, "Error while putting records into collection '#{collection.name}': #{ex.message} (#{ex.class})"
       rescue ::GRPC::BadStatus => ex
-        raise Error::RecordPutFailure, "Error while putting records into collection '#{collection.name}': #{ex.message} (#{ex.class})"
+        raise Error::StreamingPutFailure, "Error while putting records into collection '#{collection.name}': #{ex.message} (#{ex.class})"
       end
 
       def delete(collection, id)
