@@ -284,7 +284,7 @@ module CipherStash
           end
         end
 
-        @logger.info("Cipherstash::Client::RPC#put_stream") { "Streaming upsert complete. Number of records inserted: #{res.numInserted}" }
+        @logger.debug("Cipherstash::Client::RPC#put_stream") { "Streaming upsert complete. Number of records inserted: #{res.numInserted}" }
 
         num_inserted
       rescue ::GRPC::NotFound
