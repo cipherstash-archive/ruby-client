@@ -271,7 +271,7 @@ module CipherStash
         requests = [[begin_request], records].lazy.flat_map { |x| x }
 
         num_inserted = 0
-        @logger.info("Cipherstash::Client::RPC#put_stream") { "Start streaming upsert of documents..." }
+        @logger.debug("Cipherstash::Client::RPC#put_stream") { "Start streaming upsert of documents..." }
 
         @metrics.measure_rpc_call("putStream") do
           stub.put_stream_bi_direction(requests, metadata: rpc_headers).each do |res|
