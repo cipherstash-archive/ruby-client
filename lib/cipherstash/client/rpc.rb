@@ -278,7 +278,7 @@ module CipherStash
             unless res.is_a?(Documents::StreamingPutReply)
               raise Error::StreamingPutFailure, "expected Documents::StreamingPutReply response, got #{res.class} instead"
             end
-            @logger.info("Cipherstash::Client::RPC#put_stream") { "#{res.numInserted} records inserted." }
+            @logger.debug("Cipherstash::Client::RPC#put_stream") { "#{res.numInserted} records inserted." }
 
             num_inserted = res.numInserted
           end
