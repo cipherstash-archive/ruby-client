@@ -16,7 +16,7 @@ module CipherStash
       # Processor.new({
       #   "tokenFilters"=>[
       #     {"kind"=>"downcase"},
-      #     {"kind"=>"ngram", "tokenLength"=>3}
+      #     {"kind"=>"ngram", "minLength"=>3, "maxLength"}
       #   ],
       #   "tokenizer"=>{"kind"=>"standard"}
       # })
@@ -46,6 +46,18 @@ module CipherStash
             TokenFilters::Downcase.new(obj)
 
           when "ngram"
+            unless obj["minLength"] && obj["maxLength"]
+              raise CipherStash::Client::Error::InternalError, "Min length and max length not provided with ngram filter. Please specify ngram token length using '{kind: :ngram, min_length: 3, max_length: 8}'"
+            end
+
+            unless obj["minLength"].instance_of?(Integer) && obj["maxLength"].instance_of?(Integer)
+              raise CipherStash::Client::Error::InternalError, "The values provided to the min and max length must be of type Integer."
+            end
+
+            unless obj["maxLength"] >= obj["minLength"]
+                raise CipherStash::Client::Error::InternalError, "The ngram filter min length must be less than or equal to the max length"
+            end
+
             TokenFilters::NGram.new(obj)
 
           else
