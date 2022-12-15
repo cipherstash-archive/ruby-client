@@ -1,14 +1,9 @@
-begin
-  require 'git-version-bump'
-rescue LoadError
-  nil
-end
+require_relative 'lib/cipherstash/client/version'
 
 Gem::Specification.new do |s|
   s.name = "cipherstash-client"
 
-  s.version = GVB.version rescue "0.0.0.1.NOGVB"
-  s.date    = GVB.date    rescue Time.now.strftime("%Y-%m-%d")
+  s.version = CipherStash::Client::VERSION
 
   s.platform = Gem::Platform::RUBY
 
@@ -17,6 +12,7 @@ Gem::Specification.new do |s|
   s.authors  = ["Matt Palmer", "Dan Draper"]
   s.email    = ["matt@cipherstash.com"]
   s.homepage = "https://cipherstash.com"
+  s.license  = "LicenseRef-LICENCE"
 
   s.files = `git ls-files -z`.split("\0").reject { |f| f =~ /^(G|spec|Rakefile)/ }
 
@@ -39,7 +35,6 @@ Gem::Specification.new do |s|
 
   s.add_development_dependency 'bundler'
   s.add_development_dependency 'fakefs'
-  s.add_development_dependency 'github-release'
   s.add_development_dependency 'guard-rspec'
   s.add_development_dependency 'rake', '~> 13.0'
   s.add_development_dependency 'rb-inotify', '~> 0.9'
