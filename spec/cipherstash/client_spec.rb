@@ -126,7 +126,7 @@ describe CipherStash::Client do
         def schema(kind)
           mapping = {
             "kind" => kind,
-            "tokenFilters" => [{"kind" => "downcase"}, {"kind" => "ngram", "tokenLength" => 3}],
+            "tokenFilters" => [{"kind" => "downcase"}, {"kind" => "ngram", "minLength" => 3, "maxLength" => 8}],
             "tokenizer" => {"kind" => "standard"}
           }
 
@@ -233,4 +233,4 @@ describe CipherStash::Client do
       end
     end
   end
-end 
+end
