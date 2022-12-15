@@ -118,7 +118,7 @@ The [auto-generated API documentation](https://rubydoc.info/gems/cipherstash-cli
 
 # Need help?
 
-Head over to our [support forum](https://discuss.cipherstash.com/), and we'll get back to you super quick! 
+Head over to our [support forum](https://discuss.cipherstash.com/), and we'll get back to you super quick!
 
 
 # Contributing
@@ -128,16 +128,4 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for general contribution guideline
 
 ## Making a Release
 
-If you have push access to the GitHub repository, you can make a release by doing the following:
-
-1. Run `git version-bump -n <major|minor|patch>` (see [the semver spec](https://semver.org) for what each of major, minor, and patch version bumps represent).
-
-2. Write a changelog for the release, in Git commit style (headline on the first line, blank line, then Markdown text as you see fit).
-   Save/exit your editor.
-   This will automatically push the newly-created annotated tag, which will in turn kick off a release build of the gem and push it to [RubyGems.org](https://rubygems.org/gem/cipherstash-client).
-
-3. Run `rake release` to automagically create a new [GitHub release](https://github.com/cipherstash/ruby-client/releases) for the project.
-
-... and that's it!
-
-
+To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
