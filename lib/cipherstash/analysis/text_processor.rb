@@ -16,7 +16,7 @@ module CipherStash
       # Processor.new({
       #   "tokenFilters"=>[
       #     {"kind"=>"downcase"},
-      #     {"kind"=>"ngram", "minLength"=>3, "maxLength"}
+      #     {"kind"=>"ngram", "minLength"=>3, "maxLength"=>8}
       #   ],
       #   "tokenizer"=>{"kind"=>"standard"}
       # })
