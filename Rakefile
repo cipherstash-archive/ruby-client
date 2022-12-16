@@ -1,4 +1,4 @@
-exec(*(["bundle", "exec", $PROGRAM_NAME] + ARGV)) if ENV['BUNDLE_GEMFILE'].nil?
+require "bundler/gem_tasks"
 
 task :default => :test
 
@@ -22,10 +22,6 @@ namespace :gem do
       sh "gem", "push", pkgtask.name
     end
   end
-end
-
-task :release do
-  sh "git release"
 end
 
 require "./lib/cipherstash/client/ordered_string_test_generator"
