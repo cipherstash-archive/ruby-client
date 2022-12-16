@@ -1,4 +1,5 @@
-require "bundler/gem_tasks"
+exec(*(["bundle", "exec", $PROGRAM_NAME] + ARGV)) if ENV['BUNDLE_GEMFILE'].nil?
+require 'bundler/gem_tasks'
 
 task :default => :test
 
