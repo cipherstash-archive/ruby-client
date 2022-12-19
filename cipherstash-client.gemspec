@@ -14,8 +14,8 @@ Gem::Specification.new do |s|
 
   s.summary  = "Official client for the CipherStash encrypted searchable data store"
 
-  s.authors  = ["Matt Palmer", "Dan Draper"]
-  s.email    = ["matt@cipherstash.com"]
+  s.authors  = ["Dan Draper"]
+  s.email    = ["dan@cipherstash.com"]
   s.homepage = "https://cipherstash.com"
 
   s.files = `git ls-files -z`.split("\0").reject { |f| f =~ /^(G|spec|Rakefile)/ }
