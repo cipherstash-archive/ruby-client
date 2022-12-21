@@ -18,6 +18,44 @@ RSpec.describe CipherStash::Analysis::TextProcessor do
   end
 
   describe "Standard text processor with an ngram filter" do
+    ["1", { foo: "bar" }, Object.new].each do |length|
+      it "raises an error if invalid length of #{length.inspect} provided" do
+        expect {
+          CipherStash::Analysis::TextProcessor.new({
+            "tokenFilters" => [
+              { "kind" => "downcase" },
+              { "kind" => "ngram", "minLength" => length, "maxLength" => length }
+              ],
+            "tokenizer" => { "kind" => "standard" }
+          })
+        }.to raise_error(CipherStash::Client::Error::InternalError, "The values provided to the min and max length must be of type Integer.")
+      end
+    end
+
+    it "raises an error if the min length is greater than the max length" do
+      expect {
+        CipherStash::Analysis::TextProcessor.new({
+          "tokenFilters" => [
+            { "kind" => "downcase" },
+            { "kind" => "ngram", "minLength" => 4, "maxLength" => 3 }
+          ],
+          "tokenizer" => { "kind" => "standard" }
+        })
+        }.to raise_error(CipherStash::Client::Error::InternalError, "The ngram filter min length must be less than or equal to the max length")
+    end
+
+    it "raises an error if tokenLength is provided" do
+      expect {
+        CipherStash::Analysis::TextProcessor.new({
+          "tokenFilters" => [
+            { "kind" => "downcase" },
+            { "kind" => "ngram", "tokenLength" => 3 }
+          ],
+          "tokenizer" => { "kind" => "standard" }
+        })
+      }.to raise_error(CipherStash::Client::Error::InternalError, "'tokenLength' is deprecated. Use 'minLength' and 'maxLength' for the ngram filter.")
+    end
+
     it "splits text into ngrams using min length of 3 and max length of 8" do
       tokenizer =
         CipherStash::Analysis::TextProcessor.new({
