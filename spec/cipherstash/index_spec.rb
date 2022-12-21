@@ -16,7 +16,7 @@ describe CipherStash::Index do
       "mapping" => {
         "kind" => kind,
         "fields" => ["title"],
-        "tokenFilters" => [{"kind"=>"downcase"}, {"kind"=>"ngram", "tokenLength"=>3}],
+        "tokenFilters" => [{"kind"=>"downcase"}, {"kind"=>"ngram", "minLength" => 3, "maxLength" => 8}],
         "tokenizer" => {"kind"=>"standard"},
         "fieldType" => "string",
       }
@@ -33,7 +33,7 @@ describe CipherStash::Index do
       },
       "mapping" => {
         "kind" => kind,
-        "tokenFilters" => [{"kind"=>"downcase"}, {"kind"=>"ngram", "tokenLength"=>3}],
+        "tokenFilters" => [{"kind"=>"downcase"}, {"kind"=>"ngram", "minLength" => 3, "maxLength" => 8}],
         "tokenizer" => {"kind"=>"standard"},
         "fieldType" => "string",
       }
