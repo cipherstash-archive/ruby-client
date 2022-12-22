@@ -28,7 +28,7 @@ RSpec.describe CipherStash::Analysis::TextProcessor do
               ],
             "tokenizer" => { "kind" => "standard" }
           })
-        }.to raise_error(CipherStash::Client::Error::InternalError, "The values provided to the min and max length must be of type Integer.")
+        }.to raise_error(CipherStash::Client::Error::InvalidSchemaError, "The values provided to the min and max length must be of type Integer.")
       end
     end
 
@@ -41,7 +41,7 @@ RSpec.describe CipherStash::Analysis::TextProcessor do
           ],
           "tokenizer" => { "kind" => "standard" }
         })
-        }.to raise_error(CipherStash::Client::Error::InternalError, "The ngram filter min length must be less than or equal to the max length")
+        }.to raise_error(CipherStash::Client::Error::InvalidSchemaError, "The ngram filter min length must be less than or equal to the max length")
     end
 
     it "raises an error if tokenLength is provided" do
@@ -53,7 +53,7 @@ RSpec.describe CipherStash::Analysis::TextProcessor do
           ],
           "tokenizer" => { "kind" => "standard" }
         })
-      }.to raise_error(CipherStash::Client::Error::InternalError, "'tokenLength' is deprecated. Use 'minLength' and 'maxLength' for the ngram filter.")
+      }.to raise_error(CipherStash::Client::Error::InvalidSchemaError, "'tokenLength' is deprecated. Use 'minLength' and 'maxLength' for the ngram filter.")
     end
 
     it "splits text into ngrams using min length of 3 and max length of 8" do

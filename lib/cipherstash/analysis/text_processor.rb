@@ -47,15 +47,15 @@ module CipherStash
 
           when "ngram"
             if obj["tokenLength"]
-              raise CipherStash::Client::Error::InternalError, "'tokenLength' is deprecated. Use 'minLength' and 'maxLength' for the ngram filter."
+              raise CipherStash::Client::Error::InvalidSchemaError, "'tokenLength' is deprecated. Use 'minLength' and 'maxLength' for the ngram filter."
             end
 
             unless obj["minLength"].instance_of?(Integer) && obj["maxLength"].instance_of?(Integer)
-              raise CipherStash::Client::Error::InternalError, "The values provided to the min and max length must be of type Integer."
+              raise CipherStash::Client::Error::InvalidSchemaError, "The values provided to the min and max length must be of type Integer."
             end
 
             unless obj["maxLength"] >= obj["minLength"]
-                raise CipherStash::Client::Error::InternalError, "The ngram filter min length must be less than or equal to the max length"
+                raise CipherStash::Client::Error::InvalidSchemaError, "The ngram filter min length must be less than or equal to the max length"
             end
 
             TokenFilters::NGram.new(obj)
