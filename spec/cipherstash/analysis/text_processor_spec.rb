@@ -56,6 +56,19 @@ RSpec.describe CipherStash::Analysis::TextProcessor do
       }.to raise_error(CipherStash::Client::Error::InvalidSchemaError, "'tokenLength' is deprecated. Use 'minLength' and 'maxLength' for the ngram filter.")
     end
 
+    it "splits text into ngrams when min and max length are equal" do
+      tokenizer =
+        CipherStash::Analysis::TextProcessor.new({
+          "tokenFilters" => [
+            { "kind" => "downcase" },
+            { "kind" => "ngram", "minLength" => 3, "maxLength" => 3 }
+          ],
+         "tokenizer" => { "kind" => "standard" }
+        })
+      result = tokenizer.perform("Example")
+      expect(result).to eq(["exa", "xam", "amp", "mpl", "ple", "example"])
+    end
+
     it "splits text into ngrams using min length of 3 and max length of 8" do
       tokenizer =
         CipherStash::Analysis::TextProcessor.new({
